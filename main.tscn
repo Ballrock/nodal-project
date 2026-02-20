@@ -1,0 +1,81 @@
+[gd_scene format=3 uid="uid://dbvgyfpnxbjm"]
+
+[ext_resource type="Script" uid="uid://qvjiw45g6j2n" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://b3axxrk0ql7n6" path="res://scripts/links_layer.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/fleet_panel.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/fleet_dialog.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/timeline_panel.tscn" id="6"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="VSplitContainer" type="VSplitContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CanvasArea" type="Control" parent="VSplitContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Background" type="ColorRect" parent="VSplitContainer/CanvasArea"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.11, 0.11, 0.13, 1)
+
+[node name="BoxContainer" type="Control" parent="VSplitContainer/CanvasArea"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LinksLayer" type="Control" parent="VSplitContainer/CanvasArea"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2")
+
+[node name="TimelinePanel" parent="VSplitContainer" instance=ExtResource("6")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="FleetPanel" parent="." instance=ExtResource("3")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 250.0
+grow_vertical = 2
+
+[node name="FleetDialog" parent="." instance=ExtResource("4")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false

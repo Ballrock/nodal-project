@@ -1,0 +1,90 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/fleet_panel.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="panel_bg"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0.12, 0.12, 0.15, 0.95)
+border_width_right = 1
+border_color = Color(0.3, 0.3, 0.35, 1)
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+
+[sub_resource type="StyleBoxFlat" id="btn_add_style"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.29, 0.56, 0.85, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="btn_collapse_style"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.2, 0.2, 0.23, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="FleetPanel" type="PanelContainer"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 250.0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("panel_bg")
+script = ExtResource("1")
+
+[node name="FleetContent" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="FleetPanelHeader" type="HBoxContainer" parent="FleetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CollapseBtn" type="Button" parent="FleetContent/FleetPanelHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_styles/normal = SubResource("btn_collapse_style")
+text = "◀"
+
+[node name="FleetPanelTitle" type="Label" parent="FleetContent/FleetPanelHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Flottes"
+theme_override_font_sizes/font_size = 16
+
+[node name="AddBtn" type="Button" parent="FleetContent/FleetPanelHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_styles/normal = SubResource("btn_add_style")
+text = "+"
+
+[node name="Sep" type="HSeparator" parent="FleetContent"]
+layout_mode = 2
+theme_override_colors/separator_color = Color(0.3, 0.3, 0.35, 1)
+
+[node name="FleetScroll" type="ScrollContainer" parent="FleetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="FleetList" type="VBoxContainer" parent="FleetContent/FleetScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4

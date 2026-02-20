@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/timeline_panel.gd" id="1"]
+
+[node name="TimelinePanel" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 200)
+script = ExtResource("1")
