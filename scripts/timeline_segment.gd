@@ -9,7 +9,7 @@ signal segment_moved(segment: TimelineSegment, new_start: float, new_end: float)
 signal segment_resized(segment: TimelineSegment, new_start: float, new_end: float)
 
 ## Données de la boîte liée à ce segment.
-var box_data: BoxData = null
+var figure_data: FigureData = null
 
 ## Échelle en pixels par seconde (définie par le TimelinePanel parent).
 var timeline_scale: float = 100.0
@@ -46,8 +46,8 @@ func _ready() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 
-func setup(p_box_data: BoxData, p_scale: float, p_scroll_offset: float = 0.0) -> void:
-	box_data = p_box_data
+func setup(p_figure_data: FigureData, p_scale: float, p_scroll_offset: float = 0.0) -> void:
+	figure_data = p_figure_data
 	timeline_scale = p_scale
 	scroll_offset_x = p_scroll_offset
 	update_geometry()
@@ -55,10 +55,10 @@ func setup(p_box_data: BoxData, p_scale: float, p_scroll_offset: float = 0.0) ->
 
 ## Met à jour la position et la taille du clip à partir des données.
 func update_geometry() -> void:
-	if box_data == null:
+	if figure_data == null:
 		return
-	var px_start: float = SnapHelper.time_to_pixel(box_data.start_time, timeline_scale) - scroll_offset_x
-	var px_end: float = SnapHelper.time_to_pixel(box_data.end_time, timeline_scale) - scroll_offset_x
+	var px_start: float = SnapHelper.time_to_pixel(figure_data.start_time, timeline_scale) - scroll_offset_x
+	var px_end: float = SnapHelper.time_to_pixel(figure_data.end_time, timeline_scale) - scroll_offset_x
 	var w := maxf(px_end - px_start, 4.0)  # Largeur minimale 4px
 	position.x = px_start
 	size = Vector2(w, CLIP_HEIGHT)
@@ -71,13 +71,13 @@ func set_selected(selected: bool) -> void:
 
 
 func _draw() -> void:
-	if box_data == null:
+	if figure_data == null:
 		return
 
 	var rect := Rect2(Vector2.ZERO, size)
 
 	# Fond du clip (couleur de la boîte).
-	var clip_color: Color = box_data.color
+	var clip_color: Color = figure_data.color
 	clip_color.a = 0.85
 	_draw_rounded_rect(rect, clip_color)
 
@@ -86,7 +86,7 @@ func _draw() -> void:
 		_draw_rounded_border(rect, COLOR_SELECTED_BORDER, BORDER_WIDTH_SELECTED)
 
 	# Label (titre de la boîte).
-	var label := box_data.title
+	var label := figure_data.title
 	var text_pos := Vector2(6, size.y * 0.5 + LABEL_FONT_SIZE * 0.35)
 	var max_width := size.x - 12.0
 	if max_width > 10.0:
@@ -110,7 +110,7 @@ func _draw() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if box_data == null:
+	if figure_data == null:
 		return
 
 	if event is InputEventMouseButton:
@@ -136,18 +136,18 @@ func _handle_press(mb: InputEventMouseButton) -> void:
 	if local_x <= GRIP_WIDTH:
 		_resizing_left = true
 		_drag_start_mouse_x = mb.global_position.x
-		_drag_start_time = box_data.start_time
-		_drag_end_time = box_data.end_time
+		_drag_start_time = figure_data.start_time
+		_drag_end_time = figure_data.end_time
 	elif local_x >= size.x - GRIP_WIDTH:
 		_resizing_right = true
 		_drag_start_mouse_x = mb.global_position.x
-		_drag_start_time = box_data.start_time
-		_drag_end_time = box_data.end_time
+		_drag_start_time = figure_data.start_time
+		_drag_end_time = figure_data.end_time
 	else:
 		_dragging = true
 		_drag_start_mouse_x = mb.global_position.x
-		_drag_start_time = box_data.start_time
-		_drag_end_time = box_data.end_time
+		_drag_start_time = figure_data.start_time
+		_drag_end_time = figure_data.end_time
 
 	segment_selected.emit(self)
 	accept_event()
@@ -155,9 +155,9 @@ func _handle_press(mb: InputEventMouseButton) -> void:
 
 func _handle_release() -> void:
 	if _dragging:
-		segment_moved.emit(self, box_data.start_time, box_data.end_time)
+		segment_moved.emit(self, figure_data.start_time, figure_data.end_time)
 	elif _resizing_left or _resizing_right:
-		segment_resized.emit(self, box_data.start_time, box_data.end_time)
+		segment_resized.emit(self, figure_data.start_time, figure_data.end_time)
 	_dragging = false
 	_resizing_left = false
 	_resizing_right = false
@@ -174,23 +174,23 @@ func _handle_drag(mm: InputEventMouseMotion) -> void:
 		if not shift_held:
 			new_start = SnapHelper.snap_time(new_start, timeline_scale)
 		new_start = maxf(new_start, 0.0)
-		box_data.start_time = new_start
-		box_data.end_time = new_start + duration
+		figure_data.start_time = new_start
+		figure_data.end_time = new_start + duration
 
 	elif _resizing_left:
 		var new_start := _drag_start_time + delta_time
 		if not shift_held:
 			new_start = SnapHelper.snap_time(new_start, timeline_scale)
 		new_start = maxf(new_start, 0.0)
-		new_start = minf(new_start, box_data.end_time - SnapHelper.pixel_to_time(4.0, timeline_scale))
-		box_data.start_time = new_start
+		new_start = minf(new_start, figure_data.end_time - SnapHelper.pixel_to_time(4.0, timeline_scale))
+		figure_data.start_time = new_start
 
 	elif _resizing_right:
 		var new_end := _drag_end_time + delta_time
 		if not shift_held:
 			new_end = SnapHelper.snap_time(new_end, timeline_scale)
-		new_end = maxf(new_end, box_data.start_time + SnapHelper.pixel_to_time(4.0, timeline_scale))
-		box_data.end_time = new_end
+		new_end = maxf(new_end, figure_data.start_time + SnapHelper.pixel_to_time(4.0, timeline_scale))
+		figure_data.end_time = new_end
 
 	update_geometry()
 	accept_event()

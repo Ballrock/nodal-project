@@ -3,7 +3,7 @@ extends Control
 
 ## Couche de rendu des câbles (Bézier cubiques) entre les slots.
 ## Gère aussi le drag en cours lors de la création d'un nouveau câble.
-## Les liens sont stockés par ID (SlotData/BoxData) et non par référence de nœud,
+## Les liens sont stockés par ID (SlotData/FigureData) et non par référence de nœud,
 ## pour survivre aux reconstructions de slots (_build_slots).
 
 signal link_created(source_slot: Slot, target_slot: Slot)
@@ -27,7 +27,7 @@ var _drag_end: Vector2 = Vector2.ZERO
 var _drag_snap_target: Slot = null
 
 ## Référence vers toutes les boîtes pour résoudre les snaps et les liens.
-var _boxes: Array[Box] = []
+var _figures: Array[Figure] = []
 
 
 func _ready() -> void:
@@ -54,15 +54,15 @@ func _input(event: InputEvent) -> void:
 # ── API publique ──────────────────────────────────────────
 
 ## Enregistre la liste de boîtes pour la résolution des snaps.
-func set_boxes(boxes: Array[Box]) -> void:
-	_boxes = boxes
+func set_figures(figures: Array[Figure]) -> void:
+	_figures = figures
 
 
 ## Ajoute une boîte à la liste (appelé à chaque spawn).
-func register_box(box: Box) -> void:
-	if not _boxes.has(box):
-		_boxes.append(box)
-	box.slot_link_drag_started.connect(_on_slot_link_drag_started)
+func register_figure(figure: Figure) -> void:
+	if not _figures.has(figure):
+		_figures.append(figure)
+	figure.slot_link_drag_started.connect(_on_slot_link_drag_started)
 
 
 ## Ajoute un lien déjà existant (depuis LinkData).
@@ -88,10 +88,10 @@ func remove_link(link_data: LinkData) -> void:
 
 ## Cherche un lien existant depuis un slot de sortie donné vers une boîte cible.
 ## Retourne le LinkData trouvé ou null.
-func find_link_from_output_to_box(output_slot_id: StringName, target_box_id: StringName) -> LinkData:
+func find_link_from_output_to_figure(output_slot_id: StringName, target_figure_id: StringName) -> LinkData:
 	for link in _links:
 		var ld: LinkData = link["link_data"]
-		if ld.source_slot_id == output_slot_id and ld.target_box_id == target_box_id:
+		if ld.source_slot_id == output_slot_id and ld.target_figure_id == target_figure_id:
 			return ld
 	return null
 
@@ -115,17 +115,43 @@ func remove_links_for_slot_id(slot_id: StringName) -> void:
 			_links.remove_at(i)
 
 
+## Retourne tous les LinkData stockés (pour la sérialisation).
+func get_all_link_data() -> Array[LinkData]:
+	var result: Array[LinkData] = []
+	for link in _links:
+		result.append(link["link_data"])
+	return result
+
+
+## Supprime tous les liens.
+func clear_all_links() -> void:
+	_links.clear()
+	_refresh_connected_states()
+	queue_redraw()
+
+
+## Ajoute un lien à partir de données seules (sans résolution de nœuds).
+## Appeler refresh() après avoir ajouté tous les liens.
+func add_link_from_data(link_data: LinkData) -> void:
+	_links.append({"link_data": link_data})
+
+
+## Supprime toutes les boîtes enregistrées.
+func clear_figures() -> void:
+	_figures.clear()
+
+
 ## Force le redessin (quand les boîtes bougent).
 func refresh() -> void:
 	_refresh_connected_states()
 	queue_redraw()
 
 
-## Résout un Slot par box_id + slot_id parmi toutes les boîtes.
-func _resolve_slot(box_id: StringName, slot_id: StringName) -> Slot:
-	for box in _boxes:
-		if box.data and box.data.id == box_id:
-			var s := box.find_slot_by_id(slot_id)
+## Résout un Slot par figure_id + slot_id parmi toutes les boîtes.
+func _resolve_slot(figure_id: StringName, slot_id: StringName) -> Slot:
+	for figure in _figures:
+		if figure.data and figure.data.id == figure_id:
+			var s := figure.find_slot_by_id(slot_id)
 			if s:
 				return s
 	return null
@@ -134,14 +160,14 @@ func _resolve_slot(box_id: StringName, slot_id: StringName) -> Slot:
 ## Parcourt tous les liens et met à jour l'état connecté des slots.
 func _refresh_connected_states() -> void:
 	# Réinitialise tous les slots à non-connecté
-	for box in _boxes:
-		for slot in box.get_all_slots():
+	for figure in _figures:
+		for slot in figure.get_all_slots():
 			slot.set_connected(false)
 	# Marque les slots connectés
 	for link in _links:
 		var ld: LinkData = link["link_data"]
-		var src := _resolve_slot(ld.source_box_id, ld.source_slot_id)
-		var tgt := _resolve_slot(ld.target_box_id, ld.target_slot_id)
+		var src := _resolve_slot(ld.source_figure_id, ld.source_slot_id)
+		var tgt := _resolve_slot(ld.target_figure_id, ld.target_slot_id)
 		if src:
 			src.set_connected(true)
 		if tgt:
@@ -150,7 +176,7 @@ func _refresh_connected_states() -> void:
 
 # ── Drag de câble ────────────────────────────────────────
 
-func _on_slot_link_drag_started(slot: Slot, _box: Box) -> void:
+func _on_slot_link_drag_started(slot: Slot, _figure: Figure) -> void:
 	_dragging = true
 	_drag_source_slot = slot
 	_drag_end = slot.get_circle_global_center()
@@ -176,7 +202,7 @@ func _finish_drag() -> void:
 			link_replace_requested.emit(_drag_source_slot, target, existing_on_input)
 		else:
 			# Règle 2 : même sortie → même boîte cible → remplacement
-			var existing_from_output := find_link_from_output_to_box(out_slot.data.id, in_slot.owner_box.data.id)
+			var existing_from_output := find_link_from_output_to_figure(out_slot.data.id, in_slot.owner_figure.data.id)
 			if existing_from_output:
 				link_replace_requested.emit(_drag_source_slot, target, existing_from_output)
 			else:
@@ -194,8 +220,8 @@ func _find_snap_target(mouse_pos: Vector2) -> Slot:
 	var best_slot: Slot = null
 	var best_dist := SNAP_RADIUS
 
-	for box in _boxes:
-		for slot in box.get_all_slots():
+	for figure in _figures:
+		for slot in figure.get_all_slots():
 			if slot == _drag_source_slot:
 				continue
 			if not _can_connect_or_replace(_drag_source_slot, slot):
@@ -206,8 +232,8 @@ func _find_snap_target(mouse_pos: Vector2) -> Slot:
 				best_slot = slot
 
 	# Highlight gestion
-	for box in _boxes:
-		for slot in box.get_all_slots():
+	for figure in _figures:
+		for slot in figure.get_all_slots():
 			slot.set_highlight(slot == best_slot)
 
 	return best_slot
@@ -231,7 +257,7 @@ func _is_valid_connection(source: Slot, target: Slot) -> bool:
 		return false
 
 	# Pas de self-loop
-	if source.owner_box == target.owner_box:
+	if source.owner_figure == target.owner_figure:
 		return false
 
 	# Un slot d'entrée n'accepte qu'un seul câble
@@ -242,7 +268,7 @@ func _is_valid_connection(source: Slot, target: Slot) -> bool:
 	# Règle 1 : une sortie ne peut être reliée qu'à une seule entrée par boîte cible
 	var out_slot := source if src_dir == SlotData.Direction.SLOT_OUTPUT else target
 	var in_slot := target if tgt_dir == SlotData.Direction.SLOT_INPUT else source
-	if _has_link_from_output_to_box(out_slot.data.id, in_slot.owner_box.data.id):
+	if _has_link_from_output_to_figure(out_slot.data.id, in_slot.owner_figure.data.id):
 		return false
 
 	return true
@@ -265,7 +291,7 @@ func _can_connect_or_replace(source: Slot, target: Slot) -> bool:
 	else:
 		return false
 
-	if source.owner_box == target.owner_box:
+	if source.owner_figure == target.owner_figure:
 		return false
 
 	var input_slot := target if tgt_dir == SlotData.Direction.SLOT_INPUT else source
@@ -276,15 +302,15 @@ func _can_connect_or_replace(source: Slot, target: Slot) -> bool:
 		return true
 
 	# Règle 2 : même sortie → même boîte cible → remplacement autorisé
-	if _has_link_from_output_to_box(output_slot.data.id, input_slot.owner_box.data.id):
+	if _has_link_from_output_to_figure(output_slot.data.id, input_slot.owner_figure.data.id):
 		return true
 
 	return true
 
 
 ## Vérifie si un lien existe déjà depuis une sortie vers une boîte donnée.
-func _has_link_from_output_to_box(output_slot_id: StringName, target_box_id: StringName) -> bool:
-	return find_link_from_output_to_box(output_slot_id, target_box_id) != null
+func _has_link_from_output_to_figure(output_slot_id: StringName, target_figure_id: StringName) -> bool:
+	return find_link_from_output_to_figure(output_slot_id, target_figure_id) != null
 
 
 func _is_input_already_connected(slot: Slot) -> bool:
@@ -299,26 +325,32 @@ func _is_input_already_connected(slot: Slot) -> bool:
 
 # ── Rendu ─────────────────────────────────────────────────
 
+## Convertit un point global en coordonnées locales de ce Control.
+## Équivalent de Node2D.to_local() mais disponible pour Control.
+func _global_to_local(global_point: Vector2) -> Vector2:
+	return get_global_transform().affine_inverse() * global_point
+
+
 func _draw() -> void:
 	# Câbles existants — résolution à la volée par ID
 	for link in _links:
 		var ld: LinkData = link["link_data"]
-		var src := _resolve_slot(ld.source_box_id, ld.source_slot_id)
-		var tgt := _resolve_slot(ld.target_box_id, ld.target_slot_id)
+		var src := _resolve_slot(ld.source_figure_id, ld.source_slot_id)
+		var tgt := _resolve_slot(ld.target_figure_id, ld.target_slot_id)
 		if src == null or tgt == null:
 			continue
-		var from := src.get_circle_global_center() - global_position
-		var to := tgt.get_circle_global_center() - global_position
+		var from := _global_to_local(src.get_circle_global_center())
+		var to := _global_to_local(tgt.get_circle_global_center())
 		_draw_bezier(from, to, DEFAULT_COLOR, LINE_WIDTH)
 
 	# Câble en cours de drag
 	if _dragging and _drag_source_slot:
-		var from := _drag_source_slot.get_circle_global_center() - global_position
+		var from := _global_to_local(_drag_source_slot.get_circle_global_center())
 		var to: Vector2
 		if _drag_snap_target:
-			to = _drag_snap_target.get_circle_global_center() - global_position
+			to = _global_to_local(_drag_snap_target.get_circle_global_center())
 		else:
-			to = _drag_end - global_position
+			to = _global_to_local(_drag_end)
 		_draw_bezier(from, to, DRAG_COLOR, LINE_WIDTH)
 
 

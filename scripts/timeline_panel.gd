@@ -2,49 +2,52 @@ class_name TimelinePanel
 extends PanelContainer
 
 ## Panneau timeline NLE en bas de l'écran.
-## Affiche les boîtes sous forme de segments sur des pistes (tracks).
+## Affiche les boîtes sous forme de segments avec rangées dynamiques (auto-layout).
 
 ## Émis quand un segment est sélectionné (pour synchronisation avec le canvas).
-signal segment_selected(box_data: BoxData)
+signal segment_selected(figure_data: FigureData)
 ## Émis quand un segment est déplacé (drag horizontal).
-signal segment_moved(box_data: BoxData, new_start: float, new_end: float)
+signal segment_moved(figure_data: FigureData, new_start: float, new_end: float)
 ## Émis quand un segment est redimensionné (resize bords).
-signal segment_resized(box_data: BoxData, new_start: float, new_end: float)
+signal segment_resized(figure_data: FigureData, new_start: float, new_end: float)
 
 ## Échelle en pixels par seconde.
 var timeline_scale: float = 100.0:
 	set(value):
-		timeline_scale = maxf(value, 1.0)
+		timeline_scale = clampf(value, 1.0, 100000.0)
 		_update_all()
 
-## Nombre de pistes affichées.
-var track_count: int = 4
-
-## Hauteur d'une piste en pixels.
+## Hauteur d'une rangée en pixels.
 const TRACK_HEIGHT := 30
-## Largeur de la colonne des labels de piste.
-const LABEL_COLUMN_WIDTH := 120
+
+## Durée maximale en secondes (1 heure). Limite le scroll horizontal.
+const MAX_DURATION := 3600.0
+
+## Facteur de zoom par cran de molette.
+const TIMELINE_ZOOM_STEP := 1.15
 ## Couleurs.
 const COLOR_BG := Color(0.09, 0.09, 0.11, 1.0)
 const COLOR_TRACK_EVEN := Color(0.11, 0.11, 0.13, 1.0)
 const COLOR_TRACK_ODD := Color(0.13, 0.13, 0.16, 1.0)
 const COLOR_TRACK_BORDER := Color(1.0, 1.0, 1.0, 0.06)
-const COLOR_TRACK_LABEL := Color(1.0, 1.0, 1.0, 0.4)
-const LABEL_FONT_SIZE := 10
 
 ## Décalage horizontal du scroll (en pixels).
 var _scroll_offset_x: float = 0.0
 
-## Segments actuellement affichés (indexés par box_data.id).
+## Segments actuellement affichés (indexés par figure_data.id).
 var _segments: Dictionary = {}
 
 ## Le segment actuellement sélectionné.
 var _selected_segment: TimelineSegment = null
 
+## Assignation dynamique des rangées (figure_data.id → row index).
+var _row_assignments: Dictionary = {}
+## Nombre de rangées calculées.
+var _row_count: int = 1
+
 ## Références internes aux sous-nœuds.
 var _ruler: TimelineRuler = null
 var _track_area: Control = null
-var _track_labels_container: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -65,78 +68,47 @@ func _build_ui() -> void:
 	# Structure :
 	# VBoxContainer
 	#   ├── TimelineRuler
-	#   └── HBoxContainer
-	#       ├── TrackLabels (VBoxContainer, largeur fixe)
-	#       └── TrackAreaWrapper (Control, expand)
-	#           └── TrackArea (Control, grand, clippé)
+	#   └── TrackAreaWrapper (Control, expand, clip)
+	#       └── TrackArea (Control, plein rect)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 0)
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(vbox)
 
-	# Ruler.
+	# Ruler (aligné avec la zone des segments, temps 0 = bord gauche).
 	_ruler = TimelineRuler.new()
 	_ruler.timeline_scale = timeline_scale
 	_ruler.scroll_offset_x = _scroll_offset_x
 	_ruler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_ruler)
 
-	# Conteneur horizontal (labels + pistes).
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 0)
-	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(hbox)
-
-	# Colonne des labels de piste.
-	_track_labels_container = VBoxContainer.new()
-	_track_labels_container.custom_minimum_size.x = LABEL_COLUMN_WIDTH
-	_track_labels_container.add_theme_constant_override("separation", 0)
-	hbox.add_child(_track_labels_container)
-
-	# Wrapper pour la zone des pistes (clip children).
+	# Wrapper pour la zone des segments (clip children).
 	var track_wrapper := Control.new()
 	track_wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	track_wrapper.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	track_wrapper.clip_contents = true
-	hbox.add_child(track_wrapper)
+	vbox.add_child(track_wrapper)
 
-	# TrackArea : nœud enfant direct, grande largeur, positionné via scroll offset.
+	# TrackArea : nœud enfant direct, plein rect, contient les segments.
 	_track_area = Control.new()
 	_track_area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	track_wrapper.add_child(_track_area)
 
-	# Dessine les fonds de pistes.
+	# Dessine les fonds de rangées.
 	_track_area.draw.connect(_on_track_area_draw)
-
-	_build_track_labels()
-
-
-func _build_track_labels() -> void:
-	# Vide les labels existants.
-	for child in _track_labels_container.get_children():
-		_track_labels_container.remove_child(child)
-		child.queue_free()
-
-	for i in track_count:
-		var label := Label.new()
-		label.text = "Piste %d" % (i + 1)
-		label.custom_minimum_size.y = TRACK_HEIGHT
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		label.add_theme_font_size_override("font_size", LABEL_FONT_SIZE)
-		label.add_theme_color_override("font_color", COLOR_TRACK_LABEL)
-		label.add_theme_constant_override("margin_right", 8)
-		_track_labels_container.add_child(label)
 
 
 func _on_track_area_draw() -> void:
 	var w := _track_area.size.x
-	for i in track_count:
+	var row_count := maxi(_row_count, 1)
+	# Dessine suffisamment de rangées pour remplir la zone visible.
+	var visible_rows := maxi(row_count, ceili(_track_area.size.y / TRACK_HEIGHT) + 1)
+	for i in visible_rows:
 		var y := i * TRACK_HEIGHT
 		var bg_color := COLOR_TRACK_EVEN if i % 2 == 0 else COLOR_TRACK_ODD
 		_track_area.draw_rect(Rect2(0, y, w, TRACK_HEIGHT), bg_color)
-		# Ligne de séparation en bas de chaque piste.
+		# Ligne de séparation en bas de chaque rangée.
 		_track_area.draw_line(
 			Vector2(0, y + TRACK_HEIGHT),
 			Vector2(w, y + TRACK_HEIGHT),
@@ -145,13 +117,13 @@ func _on_track_area_draw() -> void:
 		)
 
 
-## Synchronise l'affichage à partir d'un tableau de BoxData.
+## Synchronise l'affichage à partir d'un tableau de FigureData.
 ## Appelé par main.gd chaque fois que la liste des boîtes change.
-func sync_from_boxes(boxes: Array) -> void:
-	# Retire les clips dont le BoxData n'existe plus.
+func sync_from_figures(figures: Array) -> void:
+	# Retire les clips dont le FigureData n'existe plus.
 	var valid_ids: Dictionary = {}
-	for box_data: BoxData in boxes:
-		valid_ids[box_data.id] = true
+	for figure_data: FigureData in figures:
+		valid_ids[figure_data.id] = true
 
 	var to_remove: Array[StringName] = []
 	for id: StringName in _segments:
@@ -163,39 +135,32 @@ func sync_from_boxes(boxes: Array) -> void:
 		_segments.erase(id)
 
 	# Crée ou met à jour les segments.
-	for box_data: BoxData in boxes:
-		if _segments.has(box_data.id):
+	for figure_data: FigureData in figures:
+		if _segments.has(figure_data.id):
 			# Mise à jour.
-			var seg: TimelineSegment = _segments[box_data.id]
+			var seg: TimelineSegment = _segments[figure_data.id]
 			seg.timeline_scale = timeline_scale
 			seg.scroll_offset_x = _scroll_offset_x
 			seg.update_geometry()
 		else:
-			_create_segment(box_data)
+			_create_segment(figure_data)
 
-	# Met à jour le nombre de pistes si nécessaire.
-	var max_track := 0
-	for box_data: BoxData in boxes:
-		if box_data.track >= max_track:
-			max_track = box_data.track + 1
-	if max_track > track_count:
-		track_count = max_track
-		_build_track_labels()
-
+	# Calcule les rangées dynamiques et repositionne les segments.
+	_compute_rows()
+	_apply_row_positions()
 	_track_area.queue_redraw()
 
 
-func _create_segment(box_data: BoxData) -> void:
+func _create_segment(figure_data: FigureData) -> void:
 	var seg := TimelineSegment.new()
 	_track_area.add_child(seg)
-	seg.setup(box_data, timeline_scale, _scroll_offset_x)
-	# Positionne le segment sur la bonne piste (Y).
-	seg.position.y = box_data.track * TRACK_HEIGHT + 1
+	seg.setup(figure_data, timeline_scale, _scroll_offset_x)
+	# Le Y sera positionné par _apply_row_positions().
 	# Signaux.
 	seg.segment_selected.connect(_on_segment_selected)
 	seg.segment_moved.connect(_on_segment_moved)
 	seg.segment_resized.connect(_on_segment_resized)
-	_segments[box_data.id] = seg
+	_segments[figure_data.id] = seg
 
 
 func _on_segment_selected(seg: TimelineSegment) -> void:
@@ -203,24 +168,32 @@ func _on_segment_selected(seg: TimelineSegment) -> void:
 		_selected_segment.set_selected(false)
 	_selected_segment = seg
 	seg.set_selected(true)
-	segment_selected.emit(seg.box_data)
+	segment_selected.emit(seg.figure_data)
 
 
 func _on_segment_moved(seg: TimelineSegment, new_start: float, new_end: float) -> void:
-	segment_moved.emit(seg.box_data, new_start, new_end)
+	# Recalcule les rangées après un déplacement (les chevauchements ont pu changer).
+	_compute_rows()
+	_apply_row_positions()
+	_track_area.queue_redraw()
+	segment_moved.emit(seg.figure_data, new_start, new_end)
 
 
 func _on_segment_resized(seg: TimelineSegment, new_start: float, new_end: float) -> void:
-	segment_resized.emit(seg.box_data, new_start, new_end)
+	# Recalcule les rangées après un resize.
+	_compute_rows()
+	_apply_row_positions()
+	_track_area.queue_redraw()
+	segment_resized.emit(seg.figure_data, new_start, new_end)
 
 
-## Sélectionne le segment correspondant à un BoxData (appelé par main.gd pour la sync canvas → timeline).
-func select_segment_for_box(box_data: BoxData) -> void:
-	if box_data == null:
+## Sélectionne le segment correspondant à un FigureData (appelé par main.gd pour la sync canvas → timeline).
+func select_segment_for_figure(figure_data: FigureData) -> void:
+	if figure_data == null:
 		deselect_all()
 		return
-	if _segments.has(box_data.id):
-		var seg: TimelineSegment = _segments[box_data.id]
+	if _segments.has(figure_data.id):
+		var seg: TimelineSegment = _segments[figure_data.id]
 		_on_segment_selected(seg)
 
 
@@ -242,36 +215,128 @@ func _update_all() -> void:
 		seg.timeline_scale = timeline_scale
 		seg.scroll_offset_x = _scroll_offset_x
 		seg.update_geometry()
-		# Repositionne Y sur la piste.
-		if seg.box_data:
-			seg.position.y = seg.box_data.track * TRACK_HEIGHT + 1
+
+	_apply_row_positions()
 
 	if _track_area:
 		_track_area.queue_redraw()
 
 
-## Gère le scroll horizontal via la molette.
+## Gère le zoom (molette sans Shift) et le scroll horizontal (Shift + molette).
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		# Scroll horizontal avec Shift + molette ou molette horizontale.
 		if mb.pressed:
 			var scroll_speed := 30.0
 			if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 				if mb.shift_pressed:
-					_scroll_offset_x = maxf(_scroll_offset_x - scroll_speed, 0.0)
+					_scroll_offset_x -= scroll_speed
+					_clamp_scroll()
 					_update_all()
+					accept_event()
+				else:
+					_apply_timeline_zoom(TIMELINE_ZOOM_STEP, mb.position.x)
 					accept_event()
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				if mb.shift_pressed:
 					_scroll_offset_x += scroll_speed
+					_clamp_scroll()
 					_update_all()
 					accept_event()
+				else:
+					_apply_timeline_zoom(1.0 / TIMELINE_ZOOM_STEP, mb.position.x)
+					accept_event()
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_LEFT:
-				_scroll_offset_x = maxf(_scroll_offset_x - scroll_speed, 0.0)
+				_scroll_offset_x -= scroll_speed
+				_clamp_scroll()
 				_update_all()
 				accept_event()
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
 				_scroll_offset_x += scroll_speed
+				_clamp_scroll()
 				_update_all()
 				accept_event()
+
+
+## Applique un zoom timeline centré sur la position X du curseur (en coordonnées locales du panneau).
+func _apply_timeline_zoom(factor: float, cursor_local_x: float) -> void:
+	var limits := get_timeline_scale_limits()
+	var old_scale := timeline_scale
+	var new_scale := clampf(timeline_scale * factor, limits.x, limits.y)
+	if is_equal_approx(old_scale, new_scale):
+		return
+	# Le temps sous le curseur doit rester fixe après le zoom.
+	var time_under_cursor := SnapHelper.pixel_to_time(_scroll_offset_x + cursor_local_x, old_scale)
+	timeline_scale = new_scale
+	# Recalcule le scroll_offset_x pour garder le même temps sous le curseur.
+	_scroll_offset_x = maxf(SnapHelper.time_to_pixel(time_under_cursor, new_scale) - cursor_local_x, 0.0)
+	_clamp_scroll()
+	_update_all()
+
+
+## Retourne les limites de scale [min, max] en fonction de la largeur visible du track area.
+## min_scale → dézoom max → afficher ~1h de durée.
+## max_scale → zoom max → afficher ~1min de durée.
+func get_timeline_scale_limits() -> Vector2:
+	var visible_width := _get_track_area_width()
+	if visible_width <= 0.0:
+		visible_width = 800.0  # Valeur de repli raisonnable.
+	var min_scale := visible_width / 3600.0  # 1h visible
+	var max_scale := visible_width / 60.0    # 1min visible
+	# Garantir que les limites sont sensées.
+	min_scale = maxf(min_scale, 0.1)
+	max_scale = maxf(max_scale, min_scale + 0.1)
+	return Vector2(min_scale, max_scale)
+
+
+## Retourne la largeur utile du track area.
+func _get_track_area_width() -> float:
+	if _track_area and _track_area.get_parent():
+		return _track_area.get_parent().size.x
+	return size.x
+
+
+## Limite le scroll horizontal entre 0 et la position maximale (1h).
+func _clamp_scroll() -> void:
+	var max_scroll := maxf(SnapHelper.time_to_pixel(MAX_DURATION, timeline_scale) - _get_track_area_width(), 0.0)
+	_scroll_offset_x = clampf(_scroll_offset_x, 0.0, max_scroll)
+
+
+## Calcule les rangées dynamiques : si deux segments se chevauchent en temps,
+## le second est placé sur la rangée en dessous (algorithme greedy d'interval partitioning).
+func _compute_rows() -> void:
+	# Collecte les FigureData des segments existants.
+	var figure_list: Array[FigureData] = []
+	for id: StringName in _segments:
+		var seg: TimelineSegment = _segments[id]
+		if seg.figure_data:
+			figure_list.append(seg.figure_data)
+
+	# Tri par start_time croissant.
+	figure_list.sort_custom(func(a: FigureData, b: FigureData) -> bool: return a.start_time < b.start_time)
+
+	# Greedy : pour chaque segment, le placer dans la première rangée libre.
+	var row_ends: Array[float] = []  # row_ends[i] = end_time du dernier segment dans la rangée i.
+	_row_assignments.clear()
+
+	for figure_data: FigureData in figure_list:
+		var placed := false
+		for row_idx in row_ends.size():
+			if figure_data.start_time >= row_ends[row_idx]:
+				row_ends[row_idx] = figure_data.end_time
+				_row_assignments[figure_data.id] = row_idx
+				placed = true
+				break
+		if not placed:
+			_row_assignments[figure_data.id] = row_ends.size()
+			row_ends.append(figure_data.end_time)
+
+	_row_count = maxi(row_ends.size(), 1)
+
+
+## Applique les positions Y des segments selon les rangées calculées.
+func _apply_row_positions() -> void:
+	for id: StringName in _segments:
+		var seg: TimelineSegment = _segments[id]
+		if seg.figure_data and _row_assignments.has(seg.figure_data.id):
+			seg.position.y = _row_assignments[seg.figure_data.id] * TRACK_HEIGHT + 1

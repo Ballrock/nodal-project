@@ -19,8 +19,8 @@ var data: SlotData
 var _is_connected: bool = false
 var _is_hovered: bool = false
 
-## Référence vers la boîte parente (renseignée par Box._build_slots).
-var owner_box: Box = null
+## Référence vers la boîte parente (renseignée par Figure._build_slots).
+var owner_figure: Figure = null
 
 @onready var _circle: PanelContainer = %SlotCircle
 @onready var _label: Label = %SlotLabel
@@ -68,7 +68,7 @@ func _on_circle_gui_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			link_drag_started.emit(self)
-			_circle.accept_event()  # Empêche la box de démarrer un drag
+			_circle.accept_event()  # Empêche la figure de démarrer un drag
 		elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
 			context_menu_requested.emit(self, mb.global_position)
 			_circle.accept_event()

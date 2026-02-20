@@ -15,8 +15,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="VSplitContainer" type="VSplitContainer" parent="."]
-unique_name_in_owner = true
+[node name="RootVBox" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -24,21 +23,50 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CanvasArea" type="Control" parent="VSplitContainer"]
+[node name="Toolbar" type="MenuBar" parent="RootVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Fichier" type="PopupMenu" parent="RootVBox/Toolbar"]
+unique_name_in_owner = true
+
+[node name="Élément" type="PopupMenu" parent="RootVBox/Toolbar"]
+unique_name_in_owner = true
+
+[node name="VSplitContainer" type="VSplitContainer" parent="RootVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="Background" type="ColorRect" parent="VSplitContainer/CanvasArea"]
+[node name="CanvasHBox" type="HBoxContainer" parent="RootVBox/VSplitContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="FleetPanel" parent="RootVBox/VSplitContainer/CanvasHBox" instance=ExtResource("3")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CanvasArea" type="Control" parent="RootVBox/VSplitContainer/CanvasHBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+clip_contents = true
+
+[node name="Background" type="ColorRect" parent="RootVBox/VSplitContainer/CanvasHBox/CanvasArea"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.11, 0.11, 0.13, 1)
 
-[node name="BoxContainer" type="Control" parent="VSplitContainer/CanvasArea"]
+[node name="CanvasContent" type="Control" parent="RootVBox/VSplitContainer/CanvasHBox/CanvasArea"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -46,8 +74,19 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 1
 
-[node name="LinksLayer" type="Control" parent="VSplitContainer/CanvasArea"]
+[node name="FigureContainer" type="Control" parent="RootVBox/VSplitContainer/CanvasHBox/CanvasArea/CanvasContent"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="LinksLayer" type="Control" parent="RootVBox/VSplitContainer/CanvasHBox/CanvasArea/CanvasContent"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -58,17 +97,9 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="TimelinePanel" parent="VSplitContainer" instance=ExtResource("6")]
+[node name="TimelinePanel" parent="RootVBox/VSplitContainer" instance=ExtResource("6")]
 unique_name_in_owner = true
 layout_mode = 2
-
-[node name="FleetPanel" parent="." instance=ExtResource("3")]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 9
-anchor_bottom = 1.0
-offset_right = 250.0
-grow_vertical = 2
 
 [node name="FleetDialog" parent="." instance=ExtResource("4")]
 unique_name_in_owner = true

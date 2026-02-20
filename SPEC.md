@@ -19,7 +19,7 @@ POC d'une interface nodale drag & drop en Godot 4.6 / GDScript, inspirée des bl
 | **Flotte** (Fleet) | Groupe de drones d'un même type (RIFF ou EMO) avec un nombre défini, géré via le volet latéral gauche |
 | **Volet Flottes** (FleetPanel) | Panneau latéral gauche collapsible listant les flottes définies |
 | **Dialogue de Flotte** (FleetDialog) | Dialogue modal centré pour créer ou modifier une flotte |
-| **Boîte Flotte** (FleetBox) | Boîte spéciale non supprimable, sans entrées, avec un slot de sortie par flotte définie |
+| **Figure Flotte** (FleetFigure) | Boîte spéciale non supprimable, sans entrées, avec un slot de sortie par flotte définie |
 
 ---
 
@@ -30,18 +30,17 @@ Main (Control, plein écran)
 ├── VSplitContainer (séparation canvas / timeline NLE)
 │   ├── CanvasArea (Control — zone de travail nodal, indépendante de la timeline)
 │   │   ├── Background (ColorRect — fond sombre)
-│   │   ├── BoxContainer (Control — parent de toutes les boîtes)
-│   │   │   ├── Box_0 (scène instanciée)
-│   │   │   ├── Box_1 …
-│   │   │   └── Box_N …
+│   │   ├── FigureContainer (Control — parent de toutes les figures)
+│   │   │   ├── Figure_0 (scène instanciée)
+│   │   │   ├── Figure_1 …
+│   │   │   └── Figure_N …
 │   │   └── LinksLayer (Control — rendu des câbles via _draw())
 │   └── TimelinePanel (PanelContainer — panneau NLE en bas, ~200px)
 │       ├── TimelineRuler (Control — graduation horizontale en secondes)
-│       └── HSplitContainer
-│           ├── TrackLabels (VBoxContainer — noms des pistes, ~120px)
-│           └── TrackArea (Control — zone scrollable des segments)
-│               ├── Track_0 → TimelineSegment(s)
-│               └── Track_N …
+│       └── TrackAreaWrapper (Control — clip, expand)
+│           └── TrackArea (Control — zone des segments, rangées dynamiques)
+│               ├── TimelineSegment_0
+│               └── TimelineSegment_N …
 ├── FleetPanel (PanelContainer — volet latéral gauche, overlay ~250px, collapsible)
 │   ├── FleetPanelHeader (HBoxContainer — titre "Flottes" + bouton +)
 │   └── FleetList (VBoxContainer — liste scrollable des flottes)
@@ -49,7 +48,7 @@ Main (Control, plein écran)
 │   └── FleetForm (VBoxContainer — nom, type de drone, nombre)
 ├── ConfigPanel (Control — panneau latéral de configuration, masqué par défaut)
 │   ├── SlotListEditor (liste d'emplacements modifiable)
-│   └── BoxPropertiesEditor (propriétés générales de la boîte)
+│   └── FigurePropertiesEditor (propriétés générales de la figure)
 ├── Toolbar (HBoxContainer — barre d'outils en haut)
 └── ZoomDetailOverlay (Control — vue détaillée plein écran d'une boîte, masquée par défaut)
 ```
@@ -72,8 +71,13 @@ Main (Control, plein écran)
 ### 3.2. Navigation
 
 - **Pan** : clic molette maintenu + déplacement souris, ou clic droit maintenu + déplacement.
-- **Zoom** : molette souris (centré sur la position du curseur).
-- Limites de zoom : min ×0.1 (vue d'ensemble), max ×5.0 (détail).
+- **Zoom** : molette souris sans Shift (centré sur la position du curseur). Facteur ×1.15 par cran.
+- **Limites de zoom dynamiques** (calculées à partir de la largeur visible du track area)  :
+  - Dézoom maximal : affiche environ **1 heure** de durée (`min_scale = largeur_visible / 3600`).
+  - Zoom maximal : affiche environ **1 minute** de durée (`max_scale = largeur_visible / 60`).
+  - Les bornes sont recalculées à chaque action de zoom pour s’adapter à la taille de la fenêtre.
+- **Scroll horizontal** : Shift + molette, ou molette horizontale. Limité à **1 heure maximum** (3600 s). Le temps 0 est toujours au bord gauche de la zone des segments.
+- **Temps 0 au début** : la graduation et les segments partagent le même repère horizontal — le temps 0 s’affiche au bord gauche du panneau.
 
 ### 3.4. Panneau Timeline NLE (en bas)
 
@@ -85,7 +89,7 @@ Main (Control, plein écran)
   - **Drag horizontal** : déplace le segment dans le temps (modifie `start_time` et `end_time` en conservant la durée). **Indépendant** de la position de la boîte sur le canvas.
   - **Resize des bords** : zones de grip (5 px) aux extrémités gauche/droite du segment. Le curseur change en `CURSOR_HSIZE`. Modifie `start_time` (bord gauche) ou `end_time` (bord droit) individuellement.
   - **Sélection synchronisée** : cliquer un segment sélectionne la boîte correspondante sur le canvas, et inversement. Le segment sélectionné a un contour surligné.
-- **Apparence des segments** : rectangle arrondi, couleur = `box_data.color`, label = `box_data.title`, hauteur = hauteur de la piste.
+- **Apparence des segments** : rectangle arrondi, couleur = `figure_data.color`, label = `figure_data.title`, hauteur = hauteur de la piste.
 - **Scroll horizontal** synchronisé entre le ruler et la zone des segments.
 - **Magnétisme** : le snap temporel (§3.3) s'applique aussi lors du drag/resize des segments.
 
@@ -267,14 +271,14 @@ Les seuils sont des constantes configurables dans un fichier de config (`res://c
 
 ## 10. Modèle de données
 
-**BoxData (Resource)**
+**FigureData (Resource)**
 - `id: StringName` — identifiant unique
 - `title: String` — nom affiché
 - `position: Vector2` — position libre sur le canvas (indépendante de la timeline)
 - `color: Color` — couleur de l'en-tête
 - `start_time: float` — début de la figure sur la timeline (en secondes, défaut 0.0)
 - `end_time: float` — fin de la figure sur la timeline (en secondes, défaut 1.0)
-- `track: int` — index de la piste sur le panneau timeline NLE (défaut 0)
+- `track: int` — rangée calculée dynamiquement sur le panneau timeline NLE (auto-layout, non éditable)
 - `input_slots: Array[SlotData]`
 - `output_slots: Array[SlotData]`
 
@@ -286,13 +290,13 @@ Les seuils sont des constantes configurables dans un fichier de config (`res://c
 
 **LinkData (Resource)**
 - `id: StringName` — identifiant unique
-- `source_box_id: StringName`
+- `source_figure_id: StringName`
 - `source_slot_id: StringName`
-- `target_box_id: StringName`
+- `target_figure_id: StringName`
 - `target_slot_id: StringName`
 
 **GraphData (Resource) — conteneur racine**
-- `boxes: Array[BoxData]`
+- `figures: Array[FigureData]`
 - `links: Array[LinkData]`
 - `timeline_scale: float` — pixels par seconde
 
@@ -302,7 +306,7 @@ Les seuils sont des constantes configurables dans un fichier de config (`res://c
 - `drone_type: int` — enum `DRONE_RIFF = 0`, `DRONE_EMO = 1`
 - `drone_count: int` — nombre de drones (≥ 1)
 
-> **Note** : les flottes sont stockées dans une ressource séparée (pas dans GraphData). Elles sont liées au graphe via les slots de sortie de la FleetBox — les câbles dans `GraphData.links` pointent vers ces slots.
+> **Note** : les flottes sont stockées dans une ressource séparée (pas dans GraphData). Elles sont liées au graphe via les slots de sortie de la FleetFigure — les câbles dans `GraphData.links` pointent vers ces slots.
 
 ---
 
@@ -315,7 +319,7 @@ res://
 │   └── settings.tres           # Constantes (seuils magnétisme, zoom limits…)
 ├── scenes/
 │   ├── main.tscn               # Scène principale
-│   ├── box.tscn                # Scène d'une boîte (instanciée)
+│   ├── figure.tscn                # Scène d'une boîte (instanciée)
 │   ├── slot.tscn               # Scène d'un slot (instanciée dans box)
 │   ├── config_panel.tscn       # Panneau de configuration
 │   ├── fleet_panel.tscn        # Volet latéral gauche des flottes
@@ -323,8 +327,10 @@ res://
 │   └── zoom_detail_overlay.tscn
 ├── scripts/
 │   ├── main.gd                 # Orchestration, input routing
+│   ├── menu_manager.gd         # Configuration et routage des menus (Fichier, Élément)
+│   ├── graph_serializer.gd     # Sérialisation / désérialisation JSON du graphe
 │   ├── canvas_workspace.gd     # Pan, zoom, gestion du canvas
-│   ├── box.gd                  # Logique de la boîte (drag, sélection)
+│   ├── figure.gd                  # Logique de la boîte (drag, sélection)
 │   ├── slot.gd                 # Logique d'un slot (détection hover/snap)
 │   ├── links_layer.gd          # Rendu et gestion des câbles (_draw)
 │   ├── config_panel.gd         # Logique du panneau de configuration
@@ -336,7 +342,7 @@ res://
 │   ├── timeline_ruler.gd       # Graduation horizontale du panneau timeline
 │   └── timeline_segment.gd     # Segment (bloc) représentant une boîte sur la timeline
 ├── data/
-│   ├── box_data.gd             # class_name BoxData extends Resource
+│   ├── figure_data.gd             # class_name FigureData extends Resource
 │   ├── slot_data.gd            # class_name SlotData extends Resource
 │   ├── link_data.gd            # class_name LinkData extends Resource
 │   ├── graph_data.gd           # class_name GraphData extends Resource
@@ -351,7 +357,11 @@ res://
 
 | Touche | Action |
 |---|---|
-| `Molette` | Zoom canvas |
+| `Ctrl + S` | Sauvegarder le schéma (Fichier → Sauvegarder) |
+| `Ctrl + O` | Charger un schéma (Fichier → Charger) |
+| `Molette` (sur le canvas) | Zoom canvas (25%–100%, centré sur curseur) |
+| `Molette` (sur la timeline, sans Shift) | Zoom timeline (centré sur curseur, bornes dynamiques 1min–1h) |
+| `Shift + Molette` (sur la timeline) | Scroll horizontal timeline |
 | `Clic molette` / `Clic droit + drag` | Pan canvas |
 | `F` | Zoom caméra sur la boîte sélectionnée |
 | `Enter` | Ouvrir la vue détaillée de la boîte sélectionnée |
@@ -372,9 +382,9 @@ res://
 - **Interaction** : drag boîte + vérifier snap timeline, drag câble + vérifier snap slot, zoom/pan fluide.
 - **Panneau config** : ouvrir, modifier le nombre de slots, vérifier la mise à jour en temps réel.
 - **Zoom** : `F` → animation vers la boîte, `Enter` → overlay détaillé, `Escape` → retour.
-- **Flottes** : créer/modifier/supprimer une flotte → vérifier cohérence liste volet + slots FleetBox + câbles.
+- **Flottes** : créer/modifier/supprimer une flotte → vérifier cohérence liste volet + slots FleetFigure + câbles.
 - **Slots inline** : bouton + sur boîte classique → vérifier ajout de paire. Clic droit → menu contextuel → supprimer lien ou emplacement.
-- **Connexions FleetBox** : sortie FleetBox → entrée boîte classique → câble établi, définit la flotte utilisée.
+- **Connexions FleetFigure** : sortie FleetFigure → entrée boîte classique → câble établi, définit la flotte utilisée.
 
 ---
 
@@ -382,7 +392,8 @@ res://
 
 ### 14.1. Position et apparence
 
-- Panneau latéral **gauche**, largeur ~250 px, en **overlay** au-dessus du canvas (ne redimensionne pas le canvas).
+- Panneau latéral **gauche**, largeur ~250 px, intégré dans un **HBoxContainer** (`CanvasHBox`) qui pousse la zone nodale horizontalement.
+- Le FleetPanel **ne couvre pas** la timeline (la timeline occupe toute la largeur en bas).
 - Style sombre cohérent avec le thème existant (fond semi-transparent `(0.12, 0.12, 0.15, 0.95)`).
 - **Collapsible** via un bouton flèche (`◀`/`▶`) dans le header du volet.
 - État initial : volet **déplié** au lancement.
@@ -396,7 +407,7 @@ res://
   - Chaque flotte est affichée par son **nom** (un `Button` ou `Label` cliquable).
   - Clic sur un nom → ouvre le FleetDialog (§15) en mode édition de cette flotte.
 
-### 14.3. Boîte Flotte (FleetBox)
+### 14.3. Figure Flotte (FleetFigure)
 
 - Boîte spéciale **créée automatiquement** au lancement du projet, **non supprimable**, **non duplicable**.
 - **0 entrées**, autant de **sorties** que de flottes définies dans le volet.
@@ -427,14 +438,60 @@ res://
 ### 15.3. Boutons
 
 - **Valider** : crée (mode création) ou met à jour (mode édition) la flotte.
-  - En mode création : la flotte est ajoutée à la liste du volet **et** un slot de sortie correspondant est ajouté à la FleetBox.
-  - En mode édition : les données sont mises à jour, le label du slot de sortie correspondant dans la FleetBox est mis à jour.
+  - En mode création : la flotte est ajoutée à la liste du volet **et** un slot de sortie correspondant est ajouté à la FleetFigure.
+  - En mode édition : les données sont mises à jour, le label du slot de sortie correspondant dans la FleetFigure est mis à jour.
 - **Annuler** : ferme le dialogue sans sauvegarder.
-- **Supprimer** (mode édition uniquement) : supprime la flotte de la liste, supprime le slot de sortie correspondant de la FleetBox, et nettoie tous les câbles associés.
+- **Supprimer** (mode édition uniquement) : supprime la flotte de la liste, supprime le slot de sortie correspondant de la FleetFigure, et nettoie tous les câbles associés.
 
 ### 15.4. Fermeture
 
 - Bouton Annuler, touche `Escape`, ou clic sur le fond assombri.
+
+---
+
+## 16. Sérialisation / Désérialisation (Sauvegarde & Chargement)
+
+### 16.1. Format
+
+- Le graphe est sauvegardé au format **JSON** (`.json`), plus portable et lisible qu'un `.tres`.
+- Version du format incluse (`version: 1`) pour compatibilité ascendante.
+
+### 16.2. Contenu sauvegardé
+
+| Donnée | Description |
+|---|---|
+| `version` | Entier (actuellement `1`) |
+| `canvas_zoom` | Niveau de zoom du canvas (`float`, 0.25 – 1.0) |
+| `timeline_scale` | Échelle de la timeline en px/s |
+| `figures` | Tableau de toutes les figures (y compris la FleetFigure marquée `is_fleet_figure: true`) avec leurs slots, position, couleur, times… |
+| `links` | Tableau de tous les câbles (ID source/cible figure + slot) |
+| `fleets` | Tableau des flottes définies |
+| `fleet_to_slot` | Mapping `fleet.id → slot.id` pour reconstruire la correspondance FleetFigure ↔ Flottes |
+
+### 16.3. Sauvegarde
+
+- Menu **Fichier → Sauvegarder** (`Ctrl+S`) → ouvre un `FileDialog` en mode sauvegarde.
+- L'utilisateur choisit le chemin et le nom du fichier (filtre `*.json`).
+- Le `GraphSerializer` collecte l'état complet (figures, liens, flottes, zoom, timeline) et écrit le JSON.
+
+### 16.4. Chargement
+
+- Menu **Fichier → Charger** (`Ctrl+O`) → ouvre un `FileDialog` en mode ouverture.
+- Le fichier JSON est lu et parsé par `GraphSerializer`.
+- L'état actuel est entièrement **effacé** (`_clear_graph`) puis **reconstruit** :
+  1. Restauration du zoom canvas et de l'échelle timeline.
+  2. Création des figures (la FleetFigure est identifiée par `is_fleet_figure` et recréée avec ses slots sauvegardés).
+  3. Alimentation du volet Flottes.
+  4. Reconstruction du mapping `fleet → slot`.
+  5. Ajout des liens.
+  6. Synchronisation de la timeline.
+
+### 16.5. Scripts
+
+| Fichier | Rôle |
+|---|---|
+| `scripts/graph_serializer.gd` | Classe statique `GraphSerializer` — sérialise/désérialise le graphe en JSON, lecture/écriture fichier |
+| `scripts/menu_manager.gd` | Classe `MenuManager` — configure les PopupMenu (Fichier, Élément), émet les signaux `save_requested`, `load_requested`, `add_figure_requested` |
 
 ---
 
@@ -444,11 +501,17 @@ res://
 - **Timeline continue** (secondes) plutôt que colonnes discrètes — offre plus de flexibilité au positionnement.
 - **Liaisons directionnelles** (entrée/sortie) à la manière Unreal — un slot d'entrée accepte un seul câble, un slot de sortie peut en avoir plusieurs.
 - **Zoom = caméra + vue détaillée** — deux niveaux complémentaires pour naviguer.
+- **Zoom canvas via `scale` sur un nœud wrapper `CanvasContent`** : le zoom (25%–100%) est appliqué en modifiant `CanvasContent.scale`. Les coordonnées logiques des figures (`FigureData.position`) ne changent pas. `LinksLayer` utilise `to_local()` pour un rendu correct quelle que soit la transformation.
+- **Rangées dynamiques timeline** : les segments sont répartis automatiquement sur des rangées par un algorithme d’interval partitioning greedy (tri par `start_time`, placement dans la première rangée libre). Pas de pistes fixes ni de labels à gauche. Les rangées sont recalculées après chaque déplacement ou resize de segment.
+- **Scroll horizontal limité à 1 h** : le décalage horizontal de la timeline est borné entre 0 et `time_to_pixel(3600, scale) - largeur_visible`. Le temps 0 est toujours aligné avec le bord gauche de la zone des segments.
+- **Zoom timeline avec bornes dynamiques** : la molette sur la timeline modifie `timeline_scale` (px/s), borné dynamiquement pour afficher entre 1 minute (zoom max) et 1 heure (dézoom max). Le temps sous le curseur reste fixe après zoom.
 - Câbles rendus via `_draw()` sur un `Control` dédié (`LinksLayer`) plutôt que des `Line2D` individuels — meilleure perf et contrôle du rendu.
-- Modèle de données basé sur des `Resource` Godot → sérialisable nativement en `.tres` pour la sauvegarde/chargement.
-- **FleetData séparée de GraphData** : ressource indépendante stockée dans son propre fichier. Liée au graphe via les slots de sortie de la FleetBox (les câbles dans `GraphData.links` pointent vers ces slots).
-- **Volet Flottes en overlay** : ne redimensionne pas le canvas, flotte au-dessus en position fixe.
+- Modèle de données basé sur des `Resource` Godot. Sauvegarde/chargement via **JSON** (`GraphSerializer`) pour portabilité et lisibilité.
+- **FleetData séparée de GraphData** : ressource indépendante stockée dans son propre fichier. Liée au graphe via les slots de sortie de la FleetFigure (les câbles dans `GraphData.links` pointent vers ces slots).
+- **Volet Flottes intégré (push)** : le FleetPanel est placé dans un `HBoxContainer` avec le `CanvasArea`, poussant la zone nodale horizontalement. Il ne couvre pas la timeline.
 - **Dialogue modal** : bloque l'interaction avec le canvas pendant l'édition d'une flotte.
-- **Contrainte #entrées = #sorties** pour les boîtes classiques : ajouter une entrée ajoute automatiquement une sortie, idem pour la suppression. La FleetBox en est exemptée (0 entrées, N sorties).
+- **Contrainte #entrées = #sorties** pour les boîtes classiques : ajouter une entrée ajoute automatiquement une sortie, idem pour la suppression. La FleetFigure en est exemptée (0 entrées, N sorties).
 - **Gestion inline des slots** : bouton "+" directement sur la boîte pour ajouter, clic droit → menu contextuel pour supprimer un lien ou un emplacement.
-- **Liens stockés par ID** : `LinksLayer` stocke les liens par `SlotData.id` / `BoxData.id` et résout les nœuds `Slot` à la volée, pour survivre aux reconstructions de la scène interne des boîtes (_build_slots).
+- **Liens stockés par ID** : `LinksLayer` stocke les liens par `SlotData.id` / `FigureData.id` et résout les nœuds `Slot` à la volée, pour survivre aux reconstructions de la scène interne des figures (_build_slots).
+- **Gestion des menus externalisée** : la classe `MenuManager` (RefCounted) configure les PopupMenu et émet des signaux, pour découpler la logique menu de `main.gd`.
+- **Sérialisation JSON** : `GraphSerializer` convertit l'état complet du graphe (figures, liens, flottes, zoom, timeline_scale, mapping fleet→slot) en JSON. Le chargement efface puis reconstruit l'état.

@@ -34,8 +34,16 @@ static func get_tick_interval(scale: float) -> float:
 		return 1.0    # 1s
 	elif scale >= 5.0:
 		return 2.0    # 2s
-	else:
+	elif scale >= 2.0:
 		return 5.0    # 5s
+	elif scale >= 1.0:
+		return 10.0   # 10s
+	elif scale >= 0.5:
+		return 30.0   # 30s
+	elif scale >= 0.2:
+		return 60.0   # 1min
+	else:
+		return 300.0  # 5min
 
 
 ## Retourne l'intervalle de graduation majeure (labels affichés).
@@ -52,8 +60,18 @@ static func get_major_tick_interval(scale: float) -> float:
 		return 5.0
 	elif scale >= 10.0:
 		return 10.0
-	else:
+	elif scale >= 5.0:
 		return 30.0
+	elif scale >= 2.0:
+		return 30.0
+	elif scale >= 1.0:
+		return 60.0
+	elif scale >= 0.5:
+		return 300.0
+	elif scale >= 0.2:
+		return 600.0
+	else:
+		return 900.0
 
 
 ## Snappe un temps sur la graduation la plus proche si dans le seuil.
@@ -70,7 +88,8 @@ static func snap_time(time_s: float, scale: float, threshold_px: float = 20.0) -
 	return time_s
 
 
-## Formate un temps en secondes pour affichage (adaptatif : "0.0s", "1.50s", "0.010s").
+## Formate un temps en secondes pour affichage (adaptatif selon l'échelle).
+## Hautes échelles : secondes avec décimales. Basses échelles : mm:ss ou h:mm:ss.
 static func format_time(time_s: float, scale: float) -> String:
 	if scale >= 500.0:
 		return "%.3fs" % time_s
@@ -78,5 +97,18 @@ static func format_time(time_s: float, scale: float) -> String:
 		return "%.2fs" % time_s
 	elif scale >= 20.0:
 		return "%.1fs" % time_s
-	else:
+	elif scale >= 2.0:
 		return "%.0fs" % time_s
+	elif scale >= 0.5:
+		# Format mm:ss
+		var total_s := int(roundf(time_s))
+		var mins := total_s / 60
+		var secs := total_s % 60
+		return "%d:%02d" % [mins, secs]
+	else:
+		# Format h:mm:ss
+		var total_s := int(roundf(time_s))
+		var hours := total_s / 3600
+		var mins := (total_s % 3600) / 60
+		var secs := total_s % 60
+		return "%d:%02d:%02d" % [hours, mins, secs]

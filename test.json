@@ -1,0 +1,80 @@
+{
+	"canvas_zoom": 1.0,
+	"figures": [
+		{
+			"color_a": 1.0,
+			"color_b": 0.419999986886978,
+			"color_g": 0.75,
+			"color_r": 0.330000013113022,
+			"end_time": 1.0,
+			"id": "7457670242308952020",
+			"input_slots": [],
+			"is_fleet_figure": true,
+			"output_slots": [
+				{
+					"direction": 1,
+					"id": "2126430637527189553",
+					"index": 0,
+					"label": "Flotte 1"
+				}
+			],
+			"position_x": 137.127105712891,
+			"position_y": 210.117889404297,
+			"start_time": 0.0,
+			"title": "Flottes",
+			"track": 0
+		},
+		{
+			"color_a": 1.0,
+			"color_b": 0.850980401039124,
+			"color_g": 0.564705908298492,
+			"color_r": 0.290196090936661,
+			"end_time": 1.0,
+			"id": "8252857732441854580",
+			"input_slots": [
+				{
+					"direction": 0,
+					"id": "9047370181838829793",
+					"index": 0,
+					"label": "input_0"
+				}
+			],
+			"is_fleet_figure": false,
+			"output_slots": [
+				{
+					"direction": 1,
+					"id": "3801949012026663714",
+					"index": 0,
+					"label": "output_0"
+				}
+			],
+			"position_x": 526.642761230469,
+			"position_y": 97.815315246582,
+			"start_time": 0.0,
+			"title": "Dragon",
+			"track": 0
+		}
+	],
+	"fleet_to_slot": {
+		"7699062994375480063": "2126430637527189553"
+	},
+	"fleets": [
+		{
+			"drone_count": 200,
+			"drone_type": 0,
+			"id": "7699062994375480063",
+			"name": "Flotte 1"
+		}
+	],
+	"links": [
+		{
+			"id": "7964660437579224488",
+			"source_figure_id": "7457670242308952020",
+			"source_slot_id": "2126430637527189553",
+			"target_figure_id": "8252857732441854580",
+			"target_slot_id": "9047370181838829793"
+		}
+	],
+	"timeline_scale": 100.0,
+	"version": 1
+}

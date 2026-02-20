@@ -57,7 +57,7 @@ func test_get_tick_interval_adapts_to_zoom() -> void:
 
 func test_get_major_tick_interval() -> void:
 	# Major ticks sont toujours >= minor ticks.
-	for scale in [10.0, 50.0, 100.0, 200.0, 500.0]:
+	for scale in [0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 50.0, 100.0, 200.0, 500.0]:
 		var minor := SnapHelper.get_tick_interval(scale)
 		var major := SnapHelper.get_major_tick_interval(scale)
 		assert_true(major >= minor, "Major tick interval should be >= minor at scale %s" % scale)
@@ -71,3 +71,38 @@ func test_format_time() -> void:
 	# À basse échelle, moins de décimales.
 	var label_lo := SnapHelper.format_time(5.0, 10.0)
 	assert_eq(label_lo, "5s")
+
+
+func test_get_tick_interval_low_scales() -> void:
+	# Vérifier que les intervalles de tick sont raisonnables à basses échelles.
+	assert_eq(SnapHelper.get_tick_interval(3.0), 5.0, "scale 3.0 → tick 5s")
+	assert_eq(SnapHelper.get_tick_interval(1.5), 10.0, "scale 1.5 → tick 10s")
+	assert_eq(SnapHelper.get_tick_interval(0.8), 30.0, "scale 0.8 → tick 30s")
+	assert_eq(SnapHelper.get_tick_interval(0.3), 60.0, "scale 0.3 → tick 60s")
+	assert_eq(SnapHelper.get_tick_interval(0.1), 300.0, "scale 0.1 → tick 300s")
+
+
+func test_get_major_tick_interval_low_scales() -> void:
+	assert_eq(SnapHelper.get_major_tick_interval(3.0), 30.0, "scale 3.0 → major 30s")
+	assert_eq(SnapHelper.get_major_tick_interval(1.5), 60.0, "scale 1.5 → major 60s")
+	assert_eq(SnapHelper.get_major_tick_interval(0.8), 300.0, "scale 0.8 → major 300s")
+	assert_eq(SnapHelper.get_major_tick_interval(0.3), 600.0, "scale 0.3 → major 600s")
+	assert_eq(SnapHelper.get_major_tick_interval(0.1), 900.0, "scale 0.1 → major 900s")
+
+
+func test_format_time_minutes() -> void:
+	# Format mm:ss pour scale < 2.0 et >= 0.5
+	var label := SnapHelper.format_time(125.0, 1.0)
+	assert_eq(label, "2:05", "125s à basse échelle devrait être formaté 2:05")
+
+	var label_zero := SnapHelper.format_time(0.0, 1.0)
+	assert_eq(label_zero, "0:00", "0s devrait être formaté 0:00")
+
+
+func test_format_time_hours() -> void:
+	# Format h:mm:ss pour scale < 0.5
+	var label := SnapHelper.format_time(3661.0, 0.3)
+	assert_eq(label, "1:01:01", "3661s devrait être formaté 1:01:01")
+
+	var label_zero := SnapHelper.format_time(0.0, 0.3)
+	assert_eq(label_zero, "0:00:00", "0s devrait être formaté 0:00:00")

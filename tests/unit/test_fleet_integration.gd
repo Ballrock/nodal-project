@@ -1,6 +1,6 @@
 extends GutTest
 
-## Tests d'intégration : ajout/suppression de flottes, mise à jour de la FleetBox,
+## Tests d'intégration : ajout/suppression de flottes, mise à jour de la FleetFigure,
 ## nettoyage des liens associés.
 ##
 ## Instancie la scène principale pour tester l'orchestration complète.
@@ -29,8 +29,8 @@ func _get_main() -> Node:
 	return _main
 
 
-func _fleet_box() -> Box:
-	return _main.get("_fleet_box") as Box
+func _fleet_figure() -> Figure:
+	return _main.get("_fleet_figure") as Figure
 
 
 func _fleet_to_slot() -> Dictionary:
@@ -45,8 +45,8 @@ func _fleet_panel() -> FleetPanel:
 	return _main.get("fleet_panel") as FleetPanel
 
 
-func _boxes_by_id() -> Dictionary:
-	return _main.get("_boxes_by_id") as Dictionary
+func _figures_by_id() -> Dictionary:
+	return _main.get("_figures_by_id") as Dictionary
 
 
 ## Simule la création d'une flotte (comme si le FleetDialog émettait le signal).
@@ -81,28 +81,28 @@ func _get_links() -> Array:
 # TESTS : FLEET BOX INITIALE
 # ══════════════════════════════════════════════════════════
 
-func test_fleet_box_exists_at_startup() -> void:
-	assert_not_null(_fleet_box(), "La FleetBox doit exister au démarrage")
+func test_fleet_figure_exists_at_startup() -> void:
+	assert_not_null(_fleet_figure(), "La FleetFigure doit exister au démarrage")
 
 
-func test_fleet_box_is_marked_as_fleet() -> void:
-	assert_true(_fleet_box().is_fleet_box, "La FleetBox doit être marquée is_fleet_box")
+func test_fleet_figure_is_marked_as_fleet() -> void:
+	assert_true(_fleet_figure().is_fleet_figure, "La FleetFigure doit être marquée is_fleet_figure")
 
 
-func test_fleet_box_has_no_inputs() -> void:
-	assert_eq(_fleet_box().data.input_slots.size(), 0,
-		"La FleetBox ne doit pas avoir d'entrées")
+func test_fleet_figure_has_no_inputs() -> void:
+	assert_eq(_fleet_figure().data.input_slots.size(), 0,
+		"La FleetFigure ne doit pas avoir d'entrées")
 
 
-func test_fleet_box_has_no_outputs_initially() -> void:
-	assert_eq(_fleet_box().data.output_slots.size(), 0,
-		"La FleetBox ne doit avoir aucune sortie au démarrage (pas de flotte)")
+func test_fleet_figure_has_no_outputs_initially() -> void:
+	assert_eq(_fleet_figure().data.output_slots.size(), 0,
+		"La FleetFigure ne doit avoir aucune sortie au démarrage (pas de flotte)")
 
 
-func test_fleet_box_has_green_color() -> void:
+func test_fleet_figure_has_green_color() -> void:
 	var expected_color := Color(0.33, 0.75, 0.42)
-	assert_eq(_fleet_box().data.color, expected_color,
-		"La FleetBox doit avoir la couleur verte définie dans SPEC §14.3")
+	assert_eq(_fleet_figure().data.color, expected_color,
+		"La FleetFigure doit avoir la couleur verte définie dans SPEC §14.3")
 
 
 # ══════════════════════════════════════════════════════════
@@ -111,27 +111,27 @@ func test_fleet_box_has_green_color() -> void:
 
 func test_add_fleet_creates_output_slot() -> void:
 	_create_fleet("Alpha")
-	assert_eq(_fleet_box().data.output_slots.size(), 1,
-		"Ajouter une flotte doit créer 1 slot de sortie sur la FleetBox")
+	assert_eq(_fleet_figure().data.output_slots.size(), 1,
+		"Ajouter une flotte doit créer 1 slot de sortie sur la FleetFigure")
 
 
 func test_add_fleet_slot_has_fleet_name_as_label() -> void:
 	_create_fleet("Bravo")
-	assert_eq(_fleet_box().data.output_slots[0].label, "Bravo",
+	assert_eq(_fleet_figure().data.output_slots[0].label, "Bravo",
 		"Le slot doit porter le nom de la flotte")
 
 
 func test_add_fleet_slot_direction_is_output() -> void:
 	_create_fleet("Charlie")
-	assert_eq(_fleet_box().data.output_slots[0].direction, SlotData.Direction.SLOT_OUTPUT,
-		"Le slot de la FleetBox doit être une sortie")
+	assert_eq(_fleet_figure().data.output_slots[0].direction, SlotData.Direction.SLOT_OUTPUT,
+		"Le slot de la FleetFigure doit être une sortie")
 
 
 func test_add_multiple_fleets_creates_multiple_slots() -> void:
 	_create_fleet("Alpha")
 	_create_fleet("Bravo")
 	_create_fleet("Charlie")
-	assert_eq(_fleet_box().data.output_slots.size(), 3,
+	assert_eq(_fleet_figure().data.output_slots.size(), 3,
 		"3 flottes → 3 slots de sortie")
 
 
@@ -152,8 +152,8 @@ func test_add_fleet_slots_have_sequential_indices() -> void:
 	_create_fleet("A")
 	_create_fleet("B")
 	_create_fleet("C")
-	for i in _fleet_box().data.output_slots.size():
-		assert_eq(_fleet_box().data.output_slots[i].index, i,
+	for i in _fleet_figure().data.output_slots.size():
+		assert_eq(_fleet_figure().data.output_slots[i].index, i,
 			"Le slot %d doit avoir l'index %d" % [i, i])
 
 
@@ -175,7 +175,7 @@ func test_update_fleet_preserves_slot_count() -> void:
 	var fleet_b := _create_fleet("B")
 	fleet_b.name = "B_renamed"
 	_update_fleet(fleet_b)
-	assert_eq(_fleet_box().data.output_slots.size(), 2,
+	assert_eq(_fleet_figure().data.output_slots.size(), 2,
 		"Le nombre de slots ne doit pas changer lors d'une mise à jour")
 
 
@@ -185,10 +185,10 @@ func test_update_fleet_preserves_slot_count() -> void:
 
 func test_remove_fleet_removes_slot() -> void:
 	var fleet := _create_fleet("ToRemove")
-	assert_eq(_fleet_box().data.output_slots.size(), 1)
+	assert_eq(_fleet_figure().data.output_slots.size(), 1)
 	_delete_fleet(fleet)
-	assert_eq(_fleet_box().data.output_slots.size(), 0,
-		"Supprimer la flotte doit retirer son slot de la FleetBox")
+	assert_eq(_fleet_figure().data.output_slots.size(), 0,
+		"Supprimer la flotte doit retirer son slot de la FleetFigure")
 
 
 func test_remove_fleet_clears_mapping() -> void:
@@ -211,10 +211,10 @@ func test_remove_middle_fleet_reindexes_remaining() -> void:
 	var fc := _create_fleet("C")
 	# Supprime celle du milieu
 	_delete_fleet(fb)
-	assert_eq(_fleet_box().data.output_slots.size(), 2, "Il doit rester 2 slots")
+	assert_eq(_fleet_figure().data.output_slots.size(), 2, "Il doit rester 2 slots")
 	# Les indices doivent être séquentiels
-	for i in _fleet_box().data.output_slots.size():
-		assert_eq(_fleet_box().data.output_slots[i].index, i,
+	for i in _fleet_figure().data.output_slots.size():
+		assert_eq(_fleet_figure().data.output_slots[i].index, i,
 			"Slot %d doit avoir index %d après reindexation" % [i, i])
 
 
@@ -224,7 +224,7 @@ func test_remove_fleet_preserves_other_slots() -> void:
 	var fc := _create_fleet("Keep_C")
 	_delete_fleet(fb)
 	var labels: Array[String] = []
-	for slot in _fleet_box().data.output_slots:
+	for slot in _fleet_figure().data.output_slots:
 		labels.append(slot.label)
 	assert_has(labels, "Keep_A", "Le slot A doit être conservé")
 	assert_has(labels, "Keep_C", "Le slot C doit être conservé")
@@ -236,30 +236,30 @@ func test_remove_fleet_preserves_other_slots() -> void:
 # ══════════════════════════════════════════════════════════
 
 func test_remove_fleet_with_link_cleans_up_link() -> void:
-	# Crée une flotte → slot de sortie sur la FleetBox
+	# Crée une flotte → slot de sortie sur la FleetFigure
 	var fleet := _create_fleet("Linked")
 	var fleet_slot_data: SlotData = _fleet_to_slot()[fleet.id]
 
 	# Récupère une boîte cible (Démarrage a 2 inputs)
-	var target_box: Box = null
-	for box_id in _boxes_by_id():
-		var box: Box = _boxes_by_id()[box_id]
-		if not box.is_fleet_box and box.data.input_slots.size() > 0:
-			target_box = box
+	var target_figure: Figure = null
+	for figure_id in _figures_by_id():
+		var figure: Figure = _figures_by_id()[figure_id]
+		if not figure.is_fleet_figure and figure.data.input_slots.size() > 0:
+			target_figure = figure
 			break
-	assert_not_null(target_box, "Il doit y avoir une boîte cible avec des entrées")
+	assert_not_null(target_figure, "Il doit y avoir une boîte cible avec des entrées")
 
-	# Crée un lien FleetBox (sortie) → boîte cible (entrée)
+	# Crée un lien FleetFigure (sortie) → boîte cible (entrée)
 	var link := LinkData.create(
-		_fleet_box().data.id,
+		_fleet_figure().data.id,
 		fleet_slot_data.id,
-		target_box.data.id,
-		target_box.data.input_slots[0].id,
+		target_figure.data.id,
+		target_figure.data.input_slots[0].id,
 	)
 	# Résoudre les slots visuels pour add_link
 	await get_tree().process_frame
-	var source_slot := _fleet_box().find_slot_by_id(fleet_slot_data.id)
-	var target_slot := target_box.find_slot_by_id(target_box.data.input_slots[0].id)
+	var source_slot := _fleet_figure().find_slot_by_id(fleet_slot_data.id)
+	var target_slot := target_figure.find_slot_by_id(target_figure.data.input_slots[0].id)
 
 	if source_slot and target_slot:
 		_links_layer().add_link(source_slot, target_slot, link)
@@ -283,11 +283,11 @@ func test_remove_fleet_with_multiple_links_cleans_all() -> void:
 	var slot_b: SlotData = _fleet_to_slot()[fleet_b.id]
 
 	# Trouve 2 boîtes cibles
-	var targets: Array[Box] = []
-	for box_id in _boxes_by_id():
-		var box: Box = _boxes_by_id()[box_id]
-		if not box.is_fleet_box and box.data.input_slots.size() > 0:
-			targets.append(box)
+	var targets: Array[Figure] = []
+	for figure_id in _figures_by_id():
+		var figure: Figure = _figures_by_id()[figure_id]
+		if not figure.is_fleet_figure and figure.data.input_slots.size() > 0:
+			targets.append(figure)
 	if targets.size() < 2:
 		pending("Pas assez de boîtes cibles pour ce test")
 		return
@@ -296,17 +296,17 @@ func test_remove_fleet_with_multiple_links_cleans_all() -> void:
 
 	# Créer les liens
 	var link_a := LinkData.create(
-		_fleet_box().data.id, slot_a.id,
+		_fleet_figure().data.id, slot_a.id,
 		targets[0].data.id, targets[0].data.input_slots[0].id,
 	)
 	var link_b := LinkData.create(
-		_fleet_box().data.id, slot_b.id,
+		_fleet_figure().data.id, slot_b.id,
 		targets[1].data.id, targets[1].data.input_slots[0].id,
 	)
 
-	var src_a := _fleet_box().find_slot_by_id(slot_a.id)
+	var src_a := _fleet_figure().find_slot_by_id(slot_a.id)
 	var tgt_a := targets[0].find_slot_by_id(targets[0].data.input_slots[0].id)
-	var src_b := _fleet_box().find_slot_by_id(slot_b.id)
+	var src_b := _fleet_figure().find_slot_by_id(slot_b.id)
 	var tgt_b := targets[1].find_slot_by_id(targets[1].data.input_slots[0].id)
 
 	if src_a and tgt_a and src_b and tgt_b:
@@ -334,8 +334,8 @@ func test_remove_all_fleets_returns_to_initial_state() -> void:
 	_delete_fleet(f1)
 	_delete_fleet(f2)
 	_delete_fleet(f3)
-	assert_eq(_fleet_box().data.output_slots.size(), 0,
-		"FleetBox doit revenir à 0 slots")
+	assert_eq(_fleet_figure().data.output_slots.size(), 0,
+		"FleetFigure doit revenir à 0 slots")
 	assert_eq(_fleet_to_slot().size(), 0,
 		"Le mapping doit être vide")
 	assert_eq(_fleet_panel().get_fleets().size(), 0,
@@ -350,24 +350,24 @@ func test_link_count_increments_on_add() -> void:
 	var fleet := _create_fleet("CountTest")
 	var slot_data: SlotData = _fleet_to_slot()[fleet.id]
 
-	var target_box: Box = null
-	for box_id in _boxes_by_id():
-		var box: Box = _boxes_by_id()[box_id]
-		if not box.is_fleet_box and box.data.input_slots.size() > 0:
-			target_box = box
+	var target_figure: Figure = null
+	for figure_id in _figures_by_id():
+		var figure: Figure = _figures_by_id()[figure_id]
+		if not figure.is_fleet_figure and figure.data.input_slots.size() > 0:
+			target_figure = figure
 			break
-	if not target_box:
+	if not target_figure:
 		pending("Pas de boîte cible")
 		return
 
 	await get_tree().process_frame
 
 	var link := LinkData.create(
-		_fleet_box().data.id, slot_data.id,
-		target_box.data.id, target_box.data.input_slots[0].id,
+		_fleet_figure().data.id, slot_data.id,
+		target_figure.data.id, target_figure.data.input_slots[0].id,
 	)
-	var src := _fleet_box().find_slot_by_id(slot_data.id)
-	var tgt := target_box.find_slot_by_id(target_box.data.input_slots[0].id)
+	var src := _fleet_figure().find_slot_by_id(slot_data.id)
+	var tgt := target_figure.find_slot_by_id(target_figure.data.input_slots[0].id)
 
 	if src and tgt:
 		var before := _link_count()
@@ -382,24 +382,24 @@ func test_remove_link_decrements_count() -> void:
 	var fleet := _create_fleet("RemoveCount")
 	var slot_data: SlotData = _fleet_to_slot()[fleet.id]
 
-	var target_box: Box = null
-	for box_id in _boxes_by_id():
-		var box: Box = _boxes_by_id()[box_id]
-		if not box.is_fleet_box and box.data.input_slots.size() > 0:
-			target_box = box
+	var target_figure: Figure = null
+	for figure_id in _figures_by_id():
+		var figure: Figure = _figures_by_id()[figure_id]
+		if not figure.is_fleet_figure and figure.data.input_slots.size() > 0:
+			target_figure = figure
 			break
-	if not target_box:
+	if not target_figure:
 		pending("Pas de boîte cible")
 		return
 
 	await get_tree().process_frame
 
 	var link := LinkData.create(
-		_fleet_box().data.id, slot_data.id,
-		target_box.data.id, target_box.data.input_slots[0].id,
+		_fleet_figure().data.id, slot_data.id,
+		target_figure.data.id, target_figure.data.input_slots[0].id,
 	)
-	var src := _fleet_box().find_slot_by_id(slot_data.id)
-	var tgt := target_box.find_slot_by_id(target_box.data.input_slots[0].id)
+	var src := _fleet_figure().find_slot_by_id(slot_data.id)
+	var tgt := target_figure.find_slot_by_id(target_figure.data.input_slots[0].id)
 
 	if src and tgt:
 		_links_layer().add_link(src, tgt, link)

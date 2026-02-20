@@ -1,17 +1,19 @@
-class_name Box
+class_name Figure
 extends PanelContainer
 
 ## Boîte nodale drag & droppable avec titre dynamique et slots dynamiques.
 
-signal drag_started(box: Box)
-signal drag_ended(box: Box)
-signal selected(box: Box)
-signal slot_link_drag_started(slot: Slot, box: Box)
-signal slots_changed(box: Box)
+signal drag_started(figure: Figure)
+signal drag_ended(figure: Figure)
+signal selected(figure: Figure)
+signal slot_link_drag_started(slot: Slot, figure: Figure)
+signal slots_changed(figure: Figure)
 ## Émis quand l'utilisateur demande la suppression d'un lien sur un slot via menu contextuel.
-signal slot_remove_link_requested(slot: Slot, box: Box)
+signal slot_remove_link_requested(slot: Slot, figure: Figure)
 ## Émis quand l'utilisateur demande la suppression d'un emplacement via menu contextuel.
-signal slot_delete_requested(slot: Slot, box: Box)
+signal slot_delete_requested(slot: Slot, figure: Figure)
+## Émis quand le titre de la figure est modifié par l'utilisateur.
+signal title_changed(figure: Figure)
 
 const SLOT_SCENE := preload("res://scenes/slot.tscn")
 
@@ -19,14 +21,16 @@ const SLOT_SCENE := preload("res://scenes/slot.tscn")
 @onready var header: PanelContainer = %Header
 @onready var _slots_container: VBoxContainer = %SlotsContainer
 
-var data: BoxData
+var data: FigureData
 
 var _dragging: bool = false
 var _drag_offset: Vector2 = Vector2.ZERO
 var _is_selected: bool = false
+var _editing_title: bool = false
+var _title_edit: LineEdit = null
 
-## Si true, la boîte est la FleetBox spéciale (pas de boutons +/−, non supprimable).
-var is_fleet_box: bool = false
+## Si true, la boîte est la FleetFigure spéciale (pas de boutons +/−, non supprimable).
+var is_fleet_figure: bool = false
 
 # ── Couleurs ──────────────────────────────────────────────
 const COLOR_SELECTED := Color("f5c542")
@@ -43,13 +47,13 @@ func _ready() -> void:
 
 
 ## Parcourt récursivement tous les enfants et force MOUSE_FILTER_PASS
-## pour que les clicks remontent jusqu'au Box parent.
+## pour que les clicks remontent jusqu'au Figure parent.
 ## Exception : les enfants d'un Slot sont gérés par le Slot lui-même.
 func _set_children_mouse_filter(node: Node) -> void:
 	for child in node.get_children():
 		if child is Control and child != self:
-			# Les boutons doivent rester cliquables
-			if child is Button:
+			# Les boutons et champs de saisie doivent rester cliquables
+			if child is Button or child is LineEdit:
 				continue
 			(child as Control).mouse_filter = Control.MOUSE_FILTER_PASS
 		# Le Slot gère le filtre de son cercle dans _ready() — ne pas y toucher
@@ -58,8 +62,8 @@ func _set_children_mouse_filter(node: Node) -> void:
 		_set_children_mouse_filter(child)
 
 
-## Initialise la boîte avec un BoxData.
-func setup(p_data: BoxData) -> void:
+## Initialise la boîte avec un FigureData.
+func setup(p_data: FigureData) -> void:
 	data = p_data
 	if is_node_ready():
 		_apply_data()
@@ -89,8 +93,8 @@ func _build_slots() -> void:
 	var out_count := data.output_slots.size()
 	var row_count: int = max(in_count, out_count)
 
-	if row_count == 0 and is_fleet_box:
-		# FleetBox sans flottes : label discret
+	if row_count == 0 and is_fleet_figure:
+		# FleetFigure sans flottes : label discret
 		var empty_label := Label.new()
 		empty_label.text = "(aucune flotte)"
 		empty_label.modulate = Color(1, 1, 1, 0.4)
@@ -114,7 +118,7 @@ func _build_slots() -> void:
 				var slot_input: Slot = SLOT_SCENE.instantiate()
 				row.add_child(slot_input)
 				slot_input.setup(data.input_slots[i])
-				slot_input.owner_box = self
+				slot_input.owner_figure = self
 				slot_input.link_drag_started.connect(_on_slot_link_drag_started)
 				slot_input.context_menu_requested.connect(_on_slot_context_menu)
 			else:
@@ -133,7 +137,7 @@ func _build_slots() -> void:
 				var slot_output: Slot = SLOT_SCENE.instantiate()
 				row.add_child(slot_output)
 				slot_output.setup(data.output_slots[i])
-				slot_output.owner_box = self
+				slot_output.owner_figure = self
 				slot_output.link_drag_started.connect(_on_slot_link_drag_started)
 				slot_output.context_menu_requested.connect(_on_slot_context_menu)
 			else:
@@ -145,7 +149,7 @@ func _build_slots() -> void:
 			_slots_container.add_child(row)
 
 	# ── Bouton + pour ajouter un emplacement (boîtes classiques uniquement) ──
-	if not is_fleet_box:
+	if not is_fleet_figure:
 		var add_btn := Button.new()
 		add_btn.text = "+"
 		add_btn.custom_minimum_size = Vector2(28, 24)
@@ -172,7 +176,7 @@ func relabel_slots() -> void:
 
 ## Ajoute une paire entrée + sortie à la boîte.
 func _on_add_slot_pair() -> void:
-	if is_fleet_box:
+	if is_fleet_figure:
 		return
 	var idx := data.input_slots.size()
 	data.input_slots.append(
@@ -193,7 +197,7 @@ var _ctx_menu_slot: Slot = null
 var _ctx_popup: PopupMenu = null
 
 func _on_slot_context_menu(slot: Slot, at_position: Vector2) -> void:
-	if is_fleet_box:
+	if is_fleet_figure:
 		return
 	_ctx_menu_slot = slot
 	if _ctx_popup:
@@ -289,6 +293,16 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			if mb.double_click:
+				# Double-clic sur le header → éditer le titre
+				var local_pos := header.get_local_mouse_position()
+				if header.get_rect().size != Vector2.ZERO and local_pos.y >= 0 and local_pos.y <= header.size.y:
+					_start_title_edit()
+					accept_event()
+					return
+			# Ne pas démarrer un drag si on est en édition de titre
+			if _editing_title:
+				return
 			_dragging = true
 			# Offset entre la position globale du nœud et la souris au moment du clic
 			_drag_offset = get_global_mouse_position() - global_position
@@ -301,18 +315,109 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+
 	# Capture le relâchement même si la souris a quitté les bounds du nœud
-	if _dragging and event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
-			_dragging = false
-			_sync_position_to_data()
-			drag_ended.emit(self)
+	if _dragging and mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
+		_dragging = false
+		_sync_position_to_data()
+		drag_ended.emit(self)
+
+	# Si on est en édition de titre et qu'un clic survient en dehors du LineEdit → valider
+	if _editing_title and mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+		if _title_edit and is_instance_valid(_title_edit):
+			var edit_rect := Rect2(_title_edit.global_position, _title_edit.size)
+			if not edit_rect.has_point(mb.global_position):
+				_commit_title_edit()
 
 
 func _process(_delta: float) -> void:
 	if _dragging:
 		global_position = get_global_mouse_position() - _drag_offset
+
+
+# ── Édition du titre (double-clic) ───────────────────────
+
+## Démarre l'édition du titre : remplace le Label par un LineEdit.
+func _start_title_edit() -> void:
+	if _editing_title:
+		return
+	_editing_title = true
+	# Annule un éventuel drag en cours (déclenché par le 1er clic du double-clic)
+	if _dragging:
+		_dragging = false
+		drag_ended.emit(self)
+
+	title_label.visible = false
+
+	_title_edit = LineEdit.new()
+	_title_edit.text = data.title
+	_title_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_edit.select_all_on_focus = true
+	# Style transparent pour s'intégrer dans le header
+	_title_edit.add_theme_color_override("font_color", title_label.get_theme_color("font_color"))
+	var flat_style := StyleBoxFlat.new()
+	flat_style.bg_color = Color(0, 0, 0, 0.2)
+	flat_style.set_content_margin_all(2)
+	_title_edit.add_theme_stylebox_override("normal", flat_style)
+	_title_edit.add_theme_stylebox_override("focus", flat_style)
+
+	header.add_child(_title_edit)
+	_title_edit.grab_focus()
+	_title_edit.select_all()
+
+	# Validation par Enter
+	_title_edit.text_submitted.connect(_on_title_edit_submitted)
+	# Annulation par Escape (géré dans _title_edit_input)
+	_title_edit.gui_input.connect(_on_title_edit_input)
+
+
+## Valide la modification du titre.
+func _commit_title_edit() -> void:
+	if not _editing_title:
+		return
+	var new_title := _title_edit.text.strip_edges()
+	if new_title.is_empty():
+		new_title = data.title  # Garde l'ancien titre si vide
+	data.title = new_title
+	title_label.text = new_title
+	_end_title_edit()
+	title_changed.emit(self)
+
+
+## Annule la modification du titre.
+func _cancel_title_edit() -> void:
+	if not _editing_title:
+		return
+	_end_title_edit()
+
+
+## Nettoie le LineEdit et restaure le Label.
+func _end_title_edit() -> void:
+	_editing_title = false
+	if _title_edit and is_instance_valid(_title_edit):
+		_title_edit.queue_free()
+		_title_edit = null
+	title_label.visible = true
+
+
+func _on_title_edit_submitted(_text: String) -> void:
+	_commit_title_edit()
+
+
+func _on_title_edit_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			# Empêche le clic dans le LineEdit de démarrer un drag
+			accept_event()
+	if event is InputEventKey:
+		var ke := event as InputEventKey
+		if ke.pressed and ke.keycode == KEY_ESCAPE:
+			_cancel_title_edit()
+			accept_event()
 
 
 func _sync_position_to_data() -> void:

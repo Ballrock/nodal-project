@@ -26,6 +26,7 @@ func _ready() -> void:
 	_collapse_btn.pressed.connect(_toggle_collapse)
 	_add_btn.pressed.connect(func() -> void: add_fleet_requested.emit())
 	custom_minimum_size.x = PANEL_WIDTH
+	size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_update_collapse_visual()
 
 
@@ -51,6 +52,18 @@ func get_fleets() -> Array[FleetData]:
 	return _fleets
 
 
+## Supprime toutes les flottes et rafraîchit l'affichage.
+func clear_fleets() -> void:
+	_fleets.clear()
+	_rebuild_list()
+
+
+## Remplace la liste des flottes et rafraîchit l'affichage.
+func set_fleets(fleets: Array[FleetData]) -> void:
+	_fleets = fleets
+	_rebuild_list()
+
+
 func _toggle_collapse() -> void:
 	_collapsed = not _collapsed
 	_update_collapse_visual()
@@ -63,14 +76,12 @@ func _update_collapse_visual() -> void:
 		_add_btn.visible = false
 		_scroll.visible = false
 		custom_minimum_size.x = COLLAPSED_WIDTH
-		size.x = COLLAPSED_WIDTH
 	else:
 		_collapse_btn.text = "◀"
 		_title_label.visible = true
 		_add_btn.visible = true
 		_scroll.visible = true
 		custom_minimum_size.x = PANEL_WIDTH
-		size.x = PANEL_WIDTH
 
 
 ## Reconstruit la liste visuelle des flottes.
