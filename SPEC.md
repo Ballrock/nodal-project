@@ -71,12 +71,21 @@ Main (Control, plein écran)
 ### 3.2. Navigation
 
 - **Pan** : clic molette maintenu + déplacement souris, ou clic droit maintenu + déplacement.
-- **Zoom** : molette souris sans Shift (centré sur la position du curseur). Facteur ×1.15 par cran.
+- **Scroll / Zoom (différencié par OS)** :
+  - **Windows / Linux** :
+    - Molette verticale (sans modificateur) → **scroll horizontal** (pan gauche/droite).
+    - `Ctrl + Molette` → **zoom** timeline (centré sur le curseur). Facteur ×1.15 par cran.
+  - **macOS** :
+    - Scroll horizontal (trackpad deux doigts, ou `WHEEL_LEFT` / `WHEEL_RIGHT`) → **scroll horizontal** (pan gauche/droite).
+    - `Ctrl + Molette verticale` → **zoom** timeline (centré sur le curseur). Facteur ×1.15 par cran.
+    - La molette verticale seule ne fait rien sur la timeline (réservée au scroll natif du trackpad).
+  - **Commun** : `WHEEL_LEFT` / `WHEEL_RIGHT` (molette horizontale matérielle) → scroll horizontal sur les deux OS.
+- **Barre de défilement iOS-style** : lors de tout scroll ou zoom, une fine barre horizontale semi-transparente (4 px) apparaît en bas de la zone des segments. Elle reste visible ~0.8 s puis disparaît en fondu (0.4 s). La taille du « thumb » reflète le ratio largeur visible / durée totale (1 h).
 - **Limites de zoom dynamiques** (calculées à partir de la largeur visible du track area)  :
   - Dézoom maximal : affiche environ **1 heure** de durée (`min_scale = largeur_visible / 3600`).
   - Zoom maximal : affiche environ **1 minute** de durée (`max_scale = largeur_visible / 60`).
   - Les bornes sont recalculées à chaque action de zoom pour s’adapter à la taille de la fenêtre.
-- **Scroll horizontal** : Shift + molette, ou molette horizontale. Limité à **1 heure maximum** (3600 s). Le temps 0 est toujours au bord gauche de la zone des segments.
+- **Scroll horizontal** : limité à **1 heure maximum** (3600 s). Le temps 0 est toujours au bord gauche de la zone des segments.
 - **Temps 0 au début** : la graduation et les segments partagent le même repère horizontal — le temps 0 s’affiche au bord gauche du panneau.
 
 ### 3.4. Panneau Timeline NLE (en bas)
@@ -360,8 +369,10 @@ res://
 | `Ctrl + S` | Sauvegarder le schéma (Fichier → Sauvegarder) |
 | `Ctrl + O` | Charger un schéma (Fichier → Charger) |
 | `Molette` (sur le canvas) | Zoom canvas (25%–100%, centré sur curseur) |
-| `Molette` (sur la timeline, sans Shift) | Zoom timeline (centré sur curseur, bornes dynamiques 1min–1h) |
-| `Shift + Molette` (sur la timeline) | Scroll horizontal timeline |
+| `Molette` (sur la timeline, Windows/Linux) | Scroll horizontal timeline (pan gauche/droite) |
+| `Ctrl + Molette` (sur la timeline) | Zoom timeline (centré sur curseur, bornes dynamiques 1min–1h) |
+| `Scroll horizontal` (sur la timeline, macOS trackpad) | Scroll horizontal timeline (pan gauche/droite) |
+| `Ctrl + Molette verticale` (sur la timeline, macOS) | Zoom timeline (centré sur curseur, bornes dynamiques 1min–1h) |
 | `Clic molette` / `Clic droit + drag` | Pan canvas |
 | `F` | Zoom caméra sur la boîte sélectionnée |
 | `Enter` | Ouvrir la vue détaillée de la boîte sélectionnée |

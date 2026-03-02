@@ -34,6 +34,29 @@ const COLOR_TRACK_BORDER := Color(1.0, 1.0, 1.0, 0.06)
 ## Décalage horizontal du scroll (en pixels).
 var _scroll_offset_x: float = 0.0
 
+## Détection de la plateforme (true si macOS).
+var _is_macos: bool = false
+
+## ── Scrollbar iOS-style ──────────────────────────────────
+## Opacité courante de la scrollbar (0 = invisible, 1 = visible).
+var _scrollbar_opacity: float = 0.0
+## Timer interne : temps restant avant de commencer le fade-out (en secondes).
+var _scrollbar_visible_timer: float = 0.0
+## Durée pendant laquelle la scrollbar reste pleinement visible après un scroll.
+const SCROLLBAR_LINGER_TIME := 0.8
+## Durée du fade-out de la scrollbar.
+const SCROLLBAR_FADE_DURATION := 0.4
+## Hauteur de la barre de défilement.
+const SCROLLBAR_HEIGHT := 4.0
+## Marge inférieure depuis le bas du track area.
+const SCROLLBAR_MARGIN_BOTTOM := 3.0
+## Marge horizontale.
+const SCROLLBAR_MARGIN_H := 4.0
+## Couleur de la scrollbar.
+const SCROLLBAR_COLOR := Color(1.0, 1.0, 1.0, 0.45)
+## Rayon des coins de la scrollbar.
+const SCROLLBAR_RADIUS := 2.0
+
 ## Segments actuellement affichés (indexés par figure_data.id).
 var _segments: Dictionary = {}
 
@@ -51,6 +74,8 @@ var _track_area: Control = null
 
 
 func _ready() -> void:
+	_is_macos = OS.get_name() == "macOS"
+	set_process(true)
 	_build_ui()
 	# Style du PanelContainer.
 	var style := StyleBoxFlat.new()
@@ -62,6 +87,22 @@ func _ready() -> void:
 	style.content_margin_top = 0
 	style.content_margin_bottom = 0
 	add_theme_stylebox_override("panel", style)
+
+
+func _process(delta: float) -> void:
+	if _scrollbar_opacity <= 0.0 and _scrollbar_visible_timer <= 0.0:
+		return
+	if _scrollbar_visible_timer > 0.0:
+		_scrollbar_visible_timer -= delta
+		if _scrollbar_visible_timer <= 0.0:
+			_scrollbar_visible_timer = 0.0
+	else:
+		# En phase de fade-out.
+		_scrollbar_opacity -= delta / SCROLLBAR_FADE_DURATION
+		if _scrollbar_opacity <= 0.0:
+			_scrollbar_opacity = 0.0
+	if _track_area:
+		_track_area.queue_redraw()
 
 
 func _build_ui() -> void:
@@ -101,9 +142,10 @@ func _build_ui() -> void:
 
 func _on_track_area_draw() -> void:
 	var w := _track_area.size.x
+	var h := _track_area.size.y
 	var row_count := maxi(_row_count, 1)
 	# Dessine suffisamment de rangées pour remplir la zone visible.
-	var visible_rows := maxi(row_count, ceili(_track_area.size.y / TRACK_HEIGHT) + 1)
+	var visible_rows := maxi(row_count, ceili(h / TRACK_HEIGHT) + 1)
 	for i in visible_rows:
 		var y := i * TRACK_HEIGHT
 		var bg_color := COLOR_TRACK_EVEN if i % 2 == 0 else COLOR_TRACK_ODD
@@ -115,6 +157,23 @@ func _on_track_area_draw() -> void:
 			COLOR_TRACK_BORDER,
 			1.0,
 		)
+
+	# ── Scrollbar iOS-style ──────────────────────────────
+	if _scrollbar_opacity > 0.0:
+		var max_scroll := maxf(SnapHelper.time_to_pixel(MAX_DURATION, timeline_scale) - _get_track_area_width(), 1.0)
+		var visible_width := _get_track_area_width()
+		var total_content := SnapHelper.time_to_pixel(MAX_DURATION, timeline_scale)
+		if total_content > visible_width:
+			var bar_area_w := w - SCROLLBAR_MARGIN_H * 2.0
+			var thumb_ratio := clampf(visible_width / total_content, 0.05, 1.0)
+			var thumb_w := maxf(bar_area_w * thumb_ratio, 24.0)
+			var scroll_ratio := clampf(_scroll_offset_x / max_scroll, 0.0, 1.0)
+			var thumb_x := SCROLLBAR_MARGIN_H + scroll_ratio * (bar_area_w - thumb_w)
+			var thumb_y := h - SCROLLBAR_HEIGHT - SCROLLBAR_MARGIN_BOTTOM
+			var bar_color := SCROLLBAR_COLOR
+			bar_color.a *= _scrollbar_opacity
+			var bar_rect := Rect2(thumb_x, thumb_y, thumb_w, SCROLLBAR_HEIGHT)
+			_draw_scrollbar_rounded_rect(_track_area, bar_rect, bar_color, SCROLLBAR_RADIUS)
 
 
 ## Synchronise l'affichage à partir d'un tableau de FigureData.
@@ -222,40 +281,83 @@ func _update_all() -> void:
 		_track_area.queue_redraw()
 
 
-## Gère le zoom (molette sans Shift) et le scroll horizontal (Shift + molette).
+## Gère le zoom et le scroll horizontal selon la plateforme.
+## Windows : molette verticale = pan horizontal, Ctrl+molette = zoom.
+## macOS   : scroll horizontal (trackpad / molette H) = pan, Ctrl+molette verticale = zoom.
+## Les deux : molette horizontale native (WHEEL_LEFT/RIGHT) = pan.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed:
 			var scroll_speed := 30.0
-			if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-				if mb.shift_pressed:
-					_scroll_offset_x -= scroll_speed
-					_clamp_scroll()
-					_update_all()
-					accept_event()
-				else:
-					_apply_timeline_zoom(TIMELINE_ZOOM_STEP, mb.position.x)
-					accept_event()
-			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-				if mb.shift_pressed:
-					_scroll_offset_x += scroll_speed
-					_clamp_scroll()
-					_update_all()
-					accept_event()
-				else:
-					_apply_timeline_zoom(1.0 / TIMELINE_ZOOM_STEP, mb.position.x)
-					accept_event()
-			elif mb.button_index == MOUSE_BUTTON_WHEEL_LEFT:
-				_scroll_offset_x -= scroll_speed
-				_clamp_scroll()
-				_update_all()
+
+			# ── Molette horizontale native (trackpad ou souris à molette H) ──
+			if mb.button_index == MOUSE_BUTTON_WHEEL_LEFT:
+				_apply_horizontal_scroll(-scroll_speed)
 				accept_event()
+				return
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
-				_scroll_offset_x += scroll_speed
-				_clamp_scroll()
-				_update_all()
+				_apply_horizontal_scroll(scroll_speed)
 				accept_event()
+				return
+
+			# ── Molette verticale ──
+			if mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				var direction := -1.0 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0
+
+				if mb.ctrl_pressed:
+					# Ctrl + molette → Zoom (les deux OS).
+					var factor := TIMELINE_ZOOM_STEP if direction < 0.0 else (1.0 / TIMELINE_ZOOM_STEP)
+					_apply_timeline_zoom(factor, mb.position.x)
+					accept_event()
+					return
+
+				if not _is_macos:
+					# Windows / Linux : molette verticale simple → pan horizontal.
+					_apply_horizontal_scroll(direction * scroll_speed)
+					accept_event()
+					return
+
+				# macOS : molette verticale sans Ctrl → ne rien faire (le pan
+				# est assuré par le scroll horizontal du trackpad / WHEEL_LEFT/RIGHT).
+
+
+## Applique un déplacement horizontal (scroll) et affiche la scrollbar.
+func _apply_horizontal_scroll(delta_px: float) -> void:
+	_scroll_offset_x += delta_px
+	_clamp_scroll()
+	_show_scrollbar()
+	_update_all()
+
+
+## Rend la scrollbar visible et réinitialise son timer de disparition.
+func _show_scrollbar() -> void:
+	_scrollbar_opacity = 1.0
+	_scrollbar_visible_timer = SCROLLBAR_LINGER_TIME
+
+
+## Dessine un rectangle arrondi pour la scrollbar (utilitaire appelé dans _on_track_area_draw).
+static func _draw_scrollbar_rounded_rect(canvas: Control, rect: Rect2, color: Color, radius: float) -> void:
+	var r := minf(radius, minf(rect.size.x * 0.5, rect.size.y * 0.5))
+	var points := PackedVector2Array()
+	var steps := 4
+	# Coin haut-gauche.
+	for i in range(steps + 1):
+		var angle := PI + (PI * 0.5) * (float(i) / steps)
+		points.append(Vector2(rect.position.x + r + cos(angle) * r, rect.position.y + r + sin(angle) * r))
+	# Coin haut-droite.
+	for i in range(steps + 1):
+		var angle := PI * 1.5 + (PI * 0.5) * (float(i) / steps)
+		points.append(Vector2(rect.end.x - r + cos(angle) * r, rect.position.y + r + sin(angle) * r))
+	# Coin bas-droite.
+	for i in range(steps + 1):
+		var angle := 0.0 + (PI * 0.5) * (float(i) / steps)
+		points.append(Vector2(rect.end.x - r + cos(angle) * r, rect.end.y - r + sin(angle) * r))
+	# Coin bas-gauche.
+	for i in range(steps + 1):
+		var angle := PI * 0.5 + (PI * 0.5) * (float(i) / steps)
+		points.append(Vector2(rect.position.x + r + cos(angle) * r, rect.end.y - r + sin(angle) * r))
+	canvas.draw_colored_polygon(points, color)
 
 
 ## Applique un zoom timeline centré sur la position X du curseur (en coordonnées locales du panneau).
@@ -271,6 +373,7 @@ func _apply_timeline_zoom(factor: float, cursor_local_x: float) -> void:
 	# Recalcule le scroll_offset_x pour garder le même temps sous le curseur.
 	_scroll_offset_x = maxf(SnapHelper.time_to_pixel(time_under_cursor, new_scale) - cursor_local_x, 0.0)
 	_clamp_scroll()
+	_show_scrollbar()
 	_update_all()
 
 
