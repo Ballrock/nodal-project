@@ -385,7 +385,7 @@ func get_timeline_scale_limits() -> Vector2:
 	if visible_width <= 0.0:
 		visible_width = 800.0  # Valeur de repli raisonnable.
 	var min_scale := visible_width / 3600.0  # 1h visible
-	var max_scale := visible_width / 60.0    # 1min visible
+	var max_scale := visible_width / 15.0    # 15s visible
 	# Garantir que les limites sont sensées.
 	min_scale = maxf(min_scale, 0.1)
 	max_scale = maxf(max_scale, min_scale + 0.1)

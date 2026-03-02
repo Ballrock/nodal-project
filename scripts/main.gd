@@ -15,6 +15,7 @@ const FLEET_FIGURE_COLOR := Color(0.33, 0.75, 0.42)
 @onready var fleet_panel: FleetPanel = %FleetPanel
 @onready var fleet_dialog: FleetDialog = %FleetDialog
 @onready var timeline_panel: TimelinePanel = %TimelinePanel
+@onready var _toolbar: MenuBar = %Toolbar
 
 ## Boîte actuellement sélectionnée (une seule à la fois).
 var _selected_figure: Figure = null
@@ -31,6 +32,11 @@ var _syncing_selection: bool = false
 
 ## Compteur pour nommer les figures séquentiellement.
 var _figure_counter: int = 0
+
+## ── Pan du canvas (clic droit / clic central) ────────────
+var _canvas_panning: bool = false
+var _canvas_pan_start: Vector2 = Vector2.ZERO
+var _canvas_content_start: Vector2 = Vector2.ZERO
 
 # ── Menu ──────────────────────────────────────────────────
 
@@ -65,7 +71,10 @@ func _ready() -> void:
 	# ── Dialogues fichier ──
 	_setup_file_dialogs()
 
-	# ── Zoom canvas ──
+	# ── Style de la barre de menus ──
+	_style_toolbar()
+
+	# ── Zoom & pan canvas ──
 	canvas_area.gui_input.connect(_canvas_area_gui_input)
 
 	# ── Volet Flottes ──
@@ -99,11 +108,25 @@ func _gui_input(event: InputEvent) -> void:
 			_deselect_all()
 
 
-# ── Zoom du canvas (molette sur CanvasArea) ──────────────
+# ── Zoom & pan du canvas (molette / clic droit-central sur CanvasArea) ──
 
 func _canvas_area_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
+
+		# ── Pan : clic droit ou clic central ──
+		if mb.button_index == MOUSE_BUTTON_RIGHT or mb.button_index == MOUSE_BUTTON_MIDDLE:
+			if mb.pressed:
+				_canvas_panning = true
+				_canvas_pan_start = mb.global_position
+				_canvas_content_start = canvas_content.position
+				canvas_area.accept_event()
+			else:
+				_canvas_panning = false
+				canvas_area.accept_event()
+			return
+
+		# ── Zoom : molette ──
 		if mb.pressed and not mb.shift_pressed:
 			if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 				_apply_canvas_zoom(CANVAS_ZOOM_STEP, mb.global_position)
@@ -111,6 +134,12 @@ func _canvas_area_gui_input(event: InputEvent) -> void:
 			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_apply_canvas_zoom(1.0 / CANVAS_ZOOM_STEP, mb.global_position)
 				canvas_area.accept_event()
+
+	if event is InputEventMouseMotion and _canvas_panning:
+		var mm := event as InputEventMouseMotion
+		canvas_content.position = _canvas_content_start + (mm.global_position - _canvas_pan_start)
+		links_layer.queue_redraw()
+		canvas_area.accept_event()
 
 
 func _apply_canvas_zoom(factor: float, mouse_global: Vector2) -> void:
@@ -129,6 +158,45 @@ func _apply_canvas_zoom(factor: float, mouse_global: Vector2) -> void:
 func get_canvas_zoom() -> float:
 	return _canvas_zoom
 
+## Style la barre de menus pour un rendu sombre sans coins arrondis.
+func _style_toolbar() -> void:
+	# Couleurs.
+	var bg_color := Color(0.11, 0.11, 0.13, 1.0)
+	var hover_color := Color(0.22, 0.22, 0.26, 1.0)
+	var pressed_color := Color(0.18, 0.18, 0.22, 1.0)
+
+	# StyleBox normal : fond sombre, pas d'arrondi.
+	var style_normal := StyleBoxFlat.new()
+	style_normal.bg_color = bg_color
+	style_normal.set_corner_radius_all(0)
+	style_normal.content_margin_left = 8
+	style_normal.content_margin_right = 8
+	style_normal.content_margin_top = 4
+	style_normal.content_margin_bottom = 4
+
+	# StyleBox hover : plus clair.
+	var style_hover := StyleBoxFlat.new()
+	style_hover.bg_color = hover_color
+	style_hover.set_corner_radius_all(0)
+	style_hover.content_margin_left = 8
+	style_hover.content_margin_right = 8
+	style_hover.content_margin_top = 4
+	style_hover.content_margin_bottom = 4
+
+	# StyleBox pressed.
+	var style_pressed := StyleBoxFlat.new()
+	style_pressed.bg_color = pressed_color
+	style_pressed.set_corner_radius_all(0)
+	style_pressed.content_margin_left = 8
+	style_pressed.content_margin_right = 8
+	style_pressed.content_margin_top = 4
+	style_pressed.content_margin_bottom = 4
+
+	# Appliquer au MenuBar.
+	_toolbar.add_theme_stylebox_override("normal", style_normal)
+	_toolbar.add_theme_stylebox_override("hover", style_hover)
+	_toolbar.add_theme_stylebox_override("pressed", style_pressed)
+	_toolbar.add_theme_stylebox_override("disabled", style_normal)
 
 # ── Menus : gestion des actions ─────────────────────────────
 
