@@ -88,4 +88,4 @@ func test_minimap_draw_no_crash() -> void:
 	# Forcer le redraw et vérifier qu'il n'y a pas d'erreur
 	minimap.queue_redraw()
 	await get_tree().process_frame
-	pass
+	pass_test("Le rendu de la minimap n'a pas causé de crash.")

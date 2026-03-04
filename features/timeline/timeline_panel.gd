@@ -286,6 +286,20 @@ func _update_all() -> void:
 ## macOS   : scroll horizontal (trackpad / molette H) = pan, Ctrl+molette verticale = zoom.
 ## Les deux : molette horizontale native (WHEEL_LEFT/RIGHT) = pan.
 func _gui_input(event: InputEvent) -> void:
+	if event is InputEventPanGesture:
+		var pg := event as InputEventPanGesture
+		# Le delta.x du PanGesture est déjà dans une unité fluide.
+		# On applique un multiplicateur pour que le ressenti soit naturel.
+		_apply_horizontal_scroll(pg.delta.x * 20.0)
+		accept_event()
+		return
+
+	if event is InputEventMagnifyGesture:
+		var mg := event as InputEventMagnifyGesture
+		_apply_timeline_zoom(mg.factor, mg.position.x)
+		accept_event()
+		return
+
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed:
@@ -385,7 +399,7 @@ func get_timeline_scale_limits() -> Vector2:
 	if visible_width <= 0.0:
 		visible_width = 800.0  # Valeur de repli raisonnable.
 	var min_scale := visible_width / 3600.0  # 1h visible
-	var max_scale := visible_width / 15.0    # 15s visible
+	var max_scale := visible_width / 60.0    # 1min visible
 	# Garantir que les limites sont sensées.
 	min_scale = maxf(min_scale, 0.1)
 	max_scale = maxf(max_scale, min_scale + 0.1)

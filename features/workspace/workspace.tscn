@@ -1,8 +1,18 @@
-[gd_scene load_steps=4 format=3 uid="uid://c1w2e3f4g5h6"]
+[gd_scene load_steps=6 format=3 uid="uid://c1w2e3f4g5h6"]
 
 [ext_resource type="Script" path="res://features/workspace/workspace.gd" id="1"]
 [ext_resource type="Script" path="res://features/workspace/components/links_layer.gd" id="2"]
 [ext_resource type="Script" path="res://features/workspace/components/minimap.gd" id="3"]
+[ext_resource type="Shader" path="res://features/workspace/assets/grid.gdshader" id="4"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_grid"]
+shader = ExtResource("4")
+shader_parameter/background_color = Color(0.11, 0.11, 0.13, 1)
+shader_parameter/line_color = Color(0.14, 0.14, 0.16, 1)
+shader_parameter/major_line_color = Color(0.18, 0.18, 0.2, 1)
+shader_parameter/grid_size = 50.0
+shader_parameter/major_grid_step = 5.0
+shader_parameter/line_width = 1.0
 
 [node name="Workspace" type="Control"]
 layout_mode = 3
@@ -27,16 +37,6 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="Background" type="ColorRect" parent="CanvasArea"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0.11, 0.11, 0.13, 1)
-
 [node name="CanvasContent" type="Control" parent="CanvasArea"]
 unique_name_in_owner = true
 layout_mode = 1
@@ -46,6 +46,24 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
+
+[node name="GridBackground" type="ColorRect" parent="CanvasArea/CanvasContent"]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_grid")
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -10000.0
+offset_top = -10000.0
+offset_right = 10000.0
+offset_bottom = 10000.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.11, 0.11, 0.13, 1)
 
 [node name="FigureContainer" type="Control" parent="CanvasArea/CanvasContent"]
 unique_name_in_owner = true
