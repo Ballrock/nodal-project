@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bv523y6c8oxyg"]
 
-[ext_resource type="Script" uid="uid://cpctiya4e22au" path="res://scripts/figure.gd" id="1"]
+[ext_resource type="Script" uid="uid://cpctiya4e22au" path="res://features/workspace/components/figure.gd" id="1"]
 
 [sub_resource type="StyleBoxFlat" id="figure_panel"]
 content_margin_left = 0.0

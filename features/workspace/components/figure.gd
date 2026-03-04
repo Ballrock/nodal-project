@@ -15,7 +15,7 @@ signal slot_delete_requested(slot: Slot, figure: Figure)
 ## Émis quand le titre de la figure est modifié par l'utilisateur.
 signal title_changed(figure: Figure)
 
-const SLOT_SCENE := preload("res://scenes/slot.tscn")
+const SLOT_SCENE := preload("res://features/workspace/components/slot.tscn")
 
 @onready var title_label: Label = %TitleLabel
 @onready var header: PanelContainer = %Header

@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://scripts/fleet_dialog.gd" id="1"]
+[ext_resource type="Script" path="res://features/fleet/fleet_dialog.gd" id="1"]
 
 [sub_resource type="StyleBoxFlat" id="dialog_panel_style"]
 content_margin_left = 24.0
