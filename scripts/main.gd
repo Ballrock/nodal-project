@@ -16,11 +16,17 @@ const FLEET_FIGURE_COLOR := Color(0.33, 0.75, 0.42)
 @onready var fleet_dialog: FleetDialog = %FleetDialog
 @onready var timeline_panel: TimelinePanel = %TimelinePanel
 @onready var _toolbar: MenuBar = %Toolbar
+@onready var minimap: Control = %Minimap
 
 ## Boîte actuellement sélectionnée (une seule à la fois).
 var _selected_figure: Figure = null
 ## Registre des boîtes par id pour résoudre les liens.
 var _figures_by_id: Dictionary = {}
+
+## ── Workspace Dynamique ──────────────────────────────────
+const DEFAULT_WORKSPACE_SIZE := Vector2(3000, 2000)
+const WORKSPACE_MARGIN := 200.0
+var _workspace_rect: Rect2 = Rect2(-DEFAULT_WORKSPACE_SIZE/2.0, DEFAULT_WORKSPACE_SIZE)
 
 ## La boîte Flotte spéciale (non supprimable, 0 entrées, N sorties = flottes).
 var _fleet_figure: Figure = null
@@ -92,12 +98,29 @@ func _ready() -> void:
 	timeline_panel.segment_resized.connect(_on_timeline_segment_resized)
 
 	# ── Boîte Flotte spéciale (créée automatiquement) ──
-	var fleet_fig_data := FigureData.create("Flottes", Vector2(270, 150), 0, 0)
+	# Positionnée au "centre" relatif (0,0)
+	var fleet_fig_data := FigureData.create("Flottes", Vector2(-400, -100), 0, 0)
 	fleet_fig_data.color = FLEET_FIGURE_COLOR
 	_fleet_figure = _spawn_figure_from_data(fleet_fig_data, true)
 
+	# ── Boîtes de test initiales ──
+	_spawn_figure("Démarrage", Vector2(-150, -150), 2, 2, 0.5, 2.5)
+	_spawn_figure("Traitement", Vector2(150, -50), 3, 3, 3.0, 5.0)
+	_spawn_figure("Fin", Vector2(450, -150), 2, 2, 6.0, 8.0)
+
+	# Centrer initialement
+	_center_view()
+
 	# Synchronise la timeline avec les boîtes existantes.
 	_sync_timeline()
+
+
+func _center_view() -> void:
+	# On attend un frame pour que les tailles soient calculées
+	await get_tree().process_frame
+	# On centre la vue sur (0,0) du content
+	canvas_content.position = canvas_area.size / 2.0
+	links_layer.queue_redraw()
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -440,9 +463,44 @@ func _stop_link_refresh() -> void:
 	_refresh_links = false
 	links_layer.refresh()
 
+func get_workspace_rect() -> Rect2:
+	return _workspace_rect
+
+
+func _update_workspace_rect() -> void:
+	# Calculer la bounding box de toutes les figures
+	var figures_rect := Rect2()
+	var first := true
+	
+	for id in _figures_by_id:
+		var figure: Figure = _figures_by_id[id]
+		# On utilise size.max(Vector2(200, 100)) si la figure n'est pas encore ready
+		var fig_rect := Rect2(figure.position, figure.size if figure.size != Vector2.ZERO else Vector2(200, 100))
+		if first:
+			figures_rect = fig_rect
+			first = false
+		else:
+			figures_rect = figures_rect.merge(fig_rect)
+	
+	# Taille minimale par défaut centrée à (0,0)
+	var min_rect := Rect2(-DEFAULT_WORKSPACE_SIZE / 2.0, DEFAULT_WORKSPACE_SIZE)
+	
+	if not first:
+		# Si on a des figures, on s'assure que le rect englobe tout avec une marge
+		var target_rect := figures_rect.grow(WORKSPACE_MARGIN)
+		
+		# On fusionne avec min_rect pour garantir la taille par défaut
+		_workspace_rect = target_rect.merge(min_rect)
+	else:
+		_workspace_rect = min_rect
+
+
 func _process(_delta: float) -> void:
 	if _refresh_links:
 		links_layer.refresh()
+	
+	# Toujours mettre à jour le workspace rect
+	_update_workspace_rect()
 
 
 # ── Gestion des Flottes ──────────────────────────────────

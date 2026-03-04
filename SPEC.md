@@ -34,7 +34,8 @@ Main (Control, plein écran)
 │   │   │   ├── Figure_0 (scène instanciée)
 │   │   │   ├── Figure_1 …
 │   │   │   └── Figure_N …
-│   │   └── LinksLayer (Control — rendu des câbles via _draw())
+│   │   ├── LinksLayer (Control — rendu des câbles via _draw())
+│   │   └── Minimap (Control — vue d'ensemble en bas à droite)
 │   └── TimelinePanel (PanelContainer — panneau NLE en bas, ~200px)
 │       ├── TimelineRuler (Control — graduation horizontale en secondes)
 │       └── TrackAreaWrapper (Control — clip, expand)
@@ -503,6 +504,31 @@ res://
 |---|---|
 | `scripts/graph_serializer.gd` | Classe statique `GraphSerializer` — sérialise/désérialise le graphe en JSON, lecture/écriture fichier |
 | `scripts/menu_manager.gd` | Classe `MenuManager` — configure les PopupMenu (Fichier, Élément), émet les signaux `save_requested`, `load_requested`, `add_figure_requested` |
+
+---
+
+## 17. Workspace dynamique et Minimap
+
+### 17.1. Workspace dynamique
+
+- **Taille par défaut** : Le `FigureContainer` possède une taille initiale par défaut (ex: 5000x5000 px) pour permettre un confort de travail immédiat.
+- **Auto-expansion** : Lorsqu'une figure est déplacée et qu'elle s'approche des bords du `FigureContainer` (marge de ~200 px), la taille du container s'agrandit automatiquement dans la direction du mouvement pour accueillir le nouveau contenu.
+- **Auto-réduction** : Si l'espace devient superflu (figures supprimées ou regroupées vers le centre), le container réduit sa taille progressivement, sans jamais descendre en dessous de la taille minimale par défaut.
+- **Centrage initial** : Au lancement ou lors d'un nouveau projet, la vue est centrée sur le milieu du workspace.
+
+### 17.2 Minimap
+
+- **Position** : Ancrée en **bas à droite** de la `CanvasArea`.
+- **Apparence** : 
+  - Rectangle semi-transparent (fond sombre type `(0, 0, 0, 0.3)`).
+  - Taille fixe ou proportionnelle (ex: 200x150 px).
+  - Affiche une representation simplifiée de toutes les figures du workspace (petits rectangles colorés).
+  - Affiche les **liaisons** (câbles) entre les figures sous forme de lignes simples.
+- **Indicateur de vue (Viewport)** : Un rectangle (souvent appelé "view rectangle" ou "gizmo") représente la zone actuellement visible par l'utilisateur sur le canvas.
+- **Interaction** :
+  - Cliquer ou draguer dans la minimap déplace instantanément la vue du canvas vers la zone correspondante.
+  - La minimap se met à jour en temps réel lors du déplacement des figures, des liens ou du pan/zoom du canvas.
+
 
 ---
 

@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/fleet_panel.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/fleet_dialog.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/timeline_panel.tscn" id="6"]
+[ext_resource type="Script" path="res://scripts/minimap.gd" id="7"]
 
 [node name="Main" type="Control" unique_id=1602979964]
 layout_mode = 3
@@ -96,6 +97,23 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2")
+
+[node name="Minimap" type="Control" parent="RootVBox/VSplitContainer/CanvasHBox/CanvasArea" unique_id=12345]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -210.0
+offset_top = -160.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("7")
 
 [node name="TimelinePanel" parent="RootVBox/VSplitContainer" unique_id=979117284 instance=ExtResource("6")]
 unique_name_in_owner = true

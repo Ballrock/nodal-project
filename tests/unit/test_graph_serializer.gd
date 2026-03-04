@@ -138,6 +138,7 @@ func test_save_and_load_file() -> void:
 
 func test_load_nonexistent_file() -> void:
 	var loaded := GraphSerializer.load_from_file("user://does_not_exist_xyz.json")
+	assert_push_error("fichier introuvable")
 	assert_true(loaded.is_empty(), "Charger un fichier inexistant doit retourner un dict vide")
 
 

@@ -22,7 +22,7 @@ Ce fichier constitue la référence unique pour :
 6. **Tester les implémentations** vérifier avec l'intellisense de Godot qu'il n'y a pas d'erreurs. Double check l'implémentation
 7. **Lorsque qu'un nouveau besoin est exprimé**, vérifier s'il est déjà couvert par la spec avant de proposer une solution et si ce n'est pas le cas, proposer une mise à jour de la spec avant d'implémenter.
 8. **Mettre en place les tests unitaires** pour toute nouvelle fonctionnalité ou modification significative, en suivant la structure définie dans le projet.
-9. **Éxecuter l'application et les tests** pour s'assurer que tout fonctionne correctement après chaque modification majeure.
+9. **TU DOIS ABSOLUMENT Éxecuter l'application et les tests** pour s'assurer que tout fonctionne correctement après chaque modification majeure.
 
 ## Stack
 
@@ -64,20 +64,15 @@ $GODOT --path .
 
 ## Exécution des tests GUT
 
-GUT est configuré avec `"should_exit": true` dans `.gutconfig.json`, ce qui fait quitter Godot automatiquement après les tests.
-
-Le moyen le plus fiable de lancer les tests est d'utiliser le script Python qui gère la détection du binaire Godot sur différents OS :
+GUT est configuré avec `"should_exit": true` dans `.gutconfig.json`, ce qui fait quitter Godot automatiquement après les tests. Le `timeout` sert uniquement de filet de sécurité.
 
 ```bash
-# Lancer tous les tests
-python3 run_tests.py
+# Détection du binaire Godot
+GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot.app/Contents/MacOS/Godot")}
 
-# Lancer un fichier de test spécifique
-python3 run_tests.py -gtest=res://tests/unit/test_minimap.gd
+# Lancer tous les tests GUT
+timeout 120 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd
 ```
-
-Alternativement via Bash (utilise `GODOT_PATH` si défini) :
-
-```bash
-./run_tests.sh
+# Lancer un fichier de test spécifique
+timeout 30 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd -gtest=res://specs/test_example.gd
 ```
