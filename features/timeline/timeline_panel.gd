@@ -34,6 +34,11 @@ const COLOR_TRACK_BORDER := Color(1.0, 1.0, 1.0, 0.06)
 ## Décalage horizontal du scroll (en pixels).
 var _scroll_offset_x: float = 0.0
 
+## Position X de la souris pour la barre verticale de suivi.
+var _mouse_x: float = -1.0
+## Si la souris est au-dessus du panel.
+var _mouse_in: bool = false
+
 ## Détection de la plateforme (true si macOS).
 var _is_macos: bool = false
 
@@ -71,6 +76,7 @@ var _row_count: int = 1
 ## Références internes aux sous-nœuds.
 var _ruler: TimelineRuler = null
 var _track_area: Control = null
+var _cursor_overlay: Control = null
 
 
 func _ready() -> void:
@@ -87,6 +93,25 @@ func _ready() -> void:
 	style.content_margin_top = 0
 	style.content_margin_bottom = 0
 	add_theme_stylebox_override("panel", style)
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var mouse_motion := make_input_local(event) as InputEventMouseMotion
+		if not mouse_motion:
+			return
+			
+		var local_pos := mouse_motion.position
+		var rect := Rect2(Vector2.ZERO, size)
+		
+		if rect.has_point(local_pos):
+			_mouse_x = local_pos.x
+			_mouse_in = true
+		else:
+			_mouse_in = false
+		
+		if _cursor_overlay:
+			_cursor_overlay.queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -139,6 +164,13 @@ func _build_ui() -> void:
 	# Dessine les fonds de rangées.
 	_track_area.draw.connect(_on_track_area_draw)
 
+	# Overlay pour la barre de suivi du curseur (en dernier pour être au-dessus).
+	_cursor_overlay = Control.new()
+	_cursor_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cursor_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_cursor_overlay)
+	_cursor_overlay.draw.connect(_on_cursor_overlay_draw)
+
 
 func _on_track_area_draw() -> void:
 	var w := _track_area.size.x
@@ -174,6 +206,18 @@ func _on_track_area_draw() -> void:
 			bar_color.a *= _scrollbar_opacity
 			var bar_rect := Rect2(thumb_x, thumb_y, thumb_w, SCROLLBAR_HEIGHT)
 			_draw_scrollbar_rounded_rect(_track_area, bar_rect, bar_color, SCROLLBAR_RADIUS)
+
+
+func _on_cursor_overlay_draw() -> void:
+	if _mouse_in:
+		# Ligne blanche fine semi-transparente.
+		var color := Color(1.0, 1.0, 1.0, 0.25)
+		_cursor_overlay.draw_line(
+			Vector2(_mouse_x, 0),
+			Vector2(_mouse_x, size.y),
+			color,
+			1.0
+		)
 
 
 ## Synchronise l'affichage à partir d'un tableau de FigureData.
