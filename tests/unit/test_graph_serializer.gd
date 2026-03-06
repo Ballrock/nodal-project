@@ -153,3 +153,76 @@ func test_save_version_included() -> void:
 	assert_eq(loaded.get("version"), GraphSerializer.SAVE_VERSION)
 
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+# ── Full Serialization ───────────────────────────────────────
+
+func test_serialize_graph_full() -> void:
+	# 1. Figures
+	var fig_a_data := _make_figure_data("FigA", 1, 1)
+	var fig_b_data := _make_figure_data("FigB", 2, 2)
+	
+	# On instancie Figure mais on ne l'ajoute pas forcément à l'arbre pour éviter @onready
+	# serialize_graph accède à figure.data et figure.is_fleet_figure
+	var fig_a := Figure.new()
+	fig_a.data = fig_a_data
+	fig_a.is_fleet_figure = false
+	
+	var fig_b := Figure.new()
+	fig_b.data = fig_b_data
+	fig_b.is_fleet_figure = true # Mock FleetFigure
+	
+	var figures_by_id := {
+		fig_a_data.id: fig_a,
+		fig_b_data.id: fig_b
+	}
+	
+	# 2. Liens (Mock LinksLayer)
+	var link_data := _make_link_data(fig_a_data, fig_a_data.output_slots[0], fig_b_data, fig_b_data.input_slots[0])
+	var mock_links_layer = double(LinksLayer).new()
+	stub(mock_links_layer, "get_all_link_data").to_return([link_data])
+	
+	# 3. Flottes (Mock FleetPanel)
+	var fleet_data := _make_fleet_data("MyFleet")
+	var mock_fleet_panel = double(FleetPanel).new()
+	stub(mock_fleet_panel, "get_fleets").to_return([fleet_data])
+	
+	# 4. Mapping fleet_to_slot
+	var fleet_to_slot := {
+		fleet_data.id: fig_b_data.output_slots[0]
+	}
+	
+	# 5. Serialization
+	var serialized := GraphSerializer.serialize_graph(
+		figures_by_id,
+		mock_links_layer,
+		mock_fleet_panel,
+		fleet_to_slot,
+		0.75, # canvas_zoom
+		150.0 # timeline_scale
+	)
+	
+	# 6. Verifications
+	assert_eq(serialized["version"], GraphSerializer.SAVE_VERSION)
+	assert_eq(serialized["canvas_zoom"], 0.75)
+	assert_eq(serialized["timeline_scale"], 150.0)
+	
+	assert_eq(serialized["figures"].size(), 2)
+	var s_fig_a = serialized["figures"][0] if serialized["figures"][0]["id"] == str(fig_a_data.id) else serialized["figures"][1]
+	assert_eq(s_fig_a["title"], "FigA")
+	assert_eq(s_fig_a["is_fleet_figure"], false)
+	
+	var s_fig_b = serialized["figures"][1] if serialized["figures"][1]["id"] == str(fig_b_data.id) else serialized["figures"][0]
+	assert_eq(s_fig_b["is_fleet_figure"], true)
+	
+	assert_eq(serialized["links"].size(), 1)
+	assert_eq(serialized["links"][0]["source_figure_id"], str(fig_a_data.id))
+	
+	assert_eq(serialized["fleets"].size(), 1)
+	assert_eq(serialized["fleets"][0]["name"], "MyFleet")
+	
+	assert_eq(serialized["fleet_to_slot"][str(fleet_data.id)], str(fig_b_data.output_slots[0].id))
+	
+	# Cleanup
+	fig_a.free()
+	fig_b.free()

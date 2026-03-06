@@ -13,6 +13,7 @@ const FigureScene := preload("res://features/workspace/components/figure.tscn")
 @onready var figure_container: Control = %FigureContainer
 @onready var links_layer: LinksLayer = %LinksLayer
 @onready var minimap: Control = %Minimap
+@onready var recenter_button: Button = %RecenterButton
 
 ## Workspace Dynamique
 const DEFAULT_WORKSPACE_SIZE := Vector2(3000, 2000)
@@ -35,6 +36,7 @@ func _ready() -> void:
 	canvas_area.gui_input.connect(_canvas_area_gui_input)
 	links_layer.link_created.connect(func(s, t): link_created.emit(s, t))
 	links_layer.link_replace_requested.connect(func(s, t, o): link_replace_requested.emit(s, t, o))
+	recenter_button.pressed.connect(center_view)
 
 func _process(_delta: float) -> void:
 	if _refresh_links:
@@ -96,7 +98,26 @@ func set_canvas_zoom(value: float) -> void:
 
 func center_view() -> void:
 	await get_tree().process_frame
-	canvas_content.position = canvas_area.size / 2.0
+	
+	# Reset zoom
+	set_canvas_zoom(1.0)
+	
+	var children = figure_container.get_children()
+	if children.is_empty():
+		canvas_content.position = canvas_area.size / 2.0
+	else:
+		var figures_rect := Rect2()
+		var first := true
+		for figure in children:
+			var fig_rect := Rect2(figure.position, figure.size if figure.size != Vector2.ZERO else Vector2(200, 100))
+			if first:
+				figures_rect = fig_rect
+				first = false
+			else:
+				figures_rect = figures_rect.merge(fig_rect)
+		
+		canvas_content.position = canvas_area.size / 2.0 - figures_rect.get_center()
+	
 	links_layer.queue_redraw()
 
 func deselect_all() -> void:

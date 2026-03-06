@@ -88,6 +88,7 @@ static func _link_data_to_dict(ld: LinkData) -> Dictionary:
 		"source_slot_id": str(ld.source_slot_id),
 		"target_figure_id": str(ld.target_figure_id),
 		"target_slot_id": str(ld.target_slot_id),
+		"is_locked": ld.is_locked,
 	}
 
 
@@ -141,6 +142,7 @@ static func dict_to_link_data(d: Dictionary) -> LinkData:
 	ld.source_slot_id = StringName(str(d["source_slot_id"]))
 	ld.target_figure_id = StringName(str(d["target_figure_id"]))
 	ld.target_slot_id = StringName(str(d["target_slot_id"]))
+	ld.is_locked = bool(d.get("is_locked", false))
 	return ld
 
 

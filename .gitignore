@@ -2,3 +2,6 @@
 .godot/
 /android/
 /examples/
+
+coverage.json
+.DS_Store

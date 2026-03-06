@@ -23,6 +23,25 @@ Ce fichier constitue la référence unique pour :
 7. **Lorsque qu'un nouveau besoin est exprimé**, vérifier s'il est déjà couvert par la spec avant de proposer une solution et si ce n'est pas le cas, proposer une mise à jour de la spec avant d'implémenter.
 8. **Mettre en place les tests unitaires** pour toute nouvelle fonctionnalité ou modification significative, en suivant la structure définie dans le projet.
 9. **TU DOIS ABSOLUMENT Éxecuter l'application et les tests** pour s'assurer que tout fonctionne correctement après chaque modification majeure.
+10. **La couverture de test unitaire doit être d'au moins 80% des lignes de code (Line Coverage)**. Tout nouveau fichier source doit être accompagné de son fichier de test couvrant l'essentiel de sa logique interne.
+11. **NE RIEN FAIRE SANS QUE CE N'AIT ETE EXPLICITEMENT DEMANDÉ**. Toute tâche doit être validée par une demande explicite avant d'être exécutée, même si elle semble évidente ou nécessaire.
+
+## Couverture des tests
+
+La couverture est calculée automatiquement par l'addon `coverage` via les hooks GUT (`pre_run_script` et `post_run_script`).
+
+**Objectif cible :** 80.0% des lignes exécutables.
+**Mesure actuelle :** **60.5%** (Total Coverage: 992/1641 lines).
+
+Pour recalculer le taux :
+```bash
+# Détection du binaire Godot
+GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot 4.6.app/Contents/MacOS/Godot")}
+
+# Lancer les tests avec hooks de couverture
+$GODOT --headless --path . -s addons/gut/gut_cmdln.gd
+```
+Les résultats détaillés par fichier s'affichent à la fin du run et sont sauvegardés dans `coverage.json`.
 
 ## Stack
 

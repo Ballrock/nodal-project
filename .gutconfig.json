@@ -5,5 +5,7 @@
 	"should_maximize": false,
     "should_exit": true,
 	"log_level": 1,
-	"include_subdirs": true
+	"include_subdirs": true,
+    "pre_run_script": "res://tests/pre_run_hook.gd",
+    "post_run_script": "res://tests/post_run_hook.gd"
 }

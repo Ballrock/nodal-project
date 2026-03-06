@@ -218,9 +218,18 @@ Main (Control, plein écran)
 
 ### 6.4. Suppression
 
-- Clic droit sur un câble → "Supprimer".
+- Clic droit sur un câble → "Supprimer la connexion" (si déverrouillé).
 - Suppression d'une boîte → tous ses câbles sont automatiquement supprimés.
 - Suppression d'un slot (via le panneau de config après déconnexion) → les câbles associés sont supprimés.
+
+### 6.5. Verrouillage (Lock)
+
+- **Interaction** : Clic droit sur le câble (la ligne elle-même) → menu contextuel "Verrouiller le lien" ou "Déverrouiller le lien".
+- **Comportement** : 
+  - Un lien verrouillé ne peut pas être supprimé manuellement via le menu contextuel (l'option "Supprimer la connexion" est grisée).
+  - Par défaut, un lien est déverrouillé.
+- **Indicateur visuel** : Une icône de cadenas blanc s'affiche au milieu du câble (position $t=0.5$ sur la courbe de Bézier) lorsque le lien est verrouillé.
+- **Données** : La propriété `is_locked: bool` est stockée dans `LinkData` et persistée en JSON.
 
 ---
 
@@ -528,6 +537,41 @@ res://
 - **Interaction** :
   - Cliquer ou draguer dans la minimap déplace instantanément la vue du canvas vers la zone correspondante.
   - La minimap se met à jour en temps réel lors du déplacement des figures, des liens ou du pan/zoom du canvas.
+
+
+---
+
+## 18. Icônes et Polices
+
+### 18.1. Librairie d'icônes
+Le projet utilise **Material Symbols** de Google (version Variable Font). Trois variantes sont disponibles dans `res://assets/fonts/` :
+- `material_symbols_outlined.ttf`
+- `material_symbols_rounded.ttf` (Recommandé par défaut)
+- `material_symbols_sharp.ttf`
+
+### 18.2. Utilisation via l'éditeur (UI)
+Pour afficher une icône dans un `Label` ou un `Button` :
+1. Dans l'inspecteur du nœud, allez dans **Theme Overrides > Fonts** et glissez l'un des fichiers `.ttf`.
+2. Dans le champ **Text**, tapez le nom de l'icône en minuscules (ex: `settings`, `lock`, `add_circle`). Les ligatures transformeront automatiquement le texte en icône.
+3. Pour changer le style (remplissage, épaisseur) :
+   - Créez une **FontVariation** sur le slot Font.
+   - Dans **Variation Coordinates**, ajoutez des axes :
+     - `FILL` : `1.0` pour une icône pleine, `0.0` pour un contour.
+     - `wght` : Épaisseur de 100 à 700 (400 par défaut).
+
+### 18.3. Utilisation via Code (Rendu personnalisé)
+Pour dessiner une icône dans un script via `_draw()` :
+```gdscript
+var font = preload("res://assets/fonts/material_symbols_rounded.ttf")
+var icon_name = "lock"
+var font_size = 16
+
+# Calculer la taille pour le centrage
+var size = font.get_string_size(icon_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+var pos = center_pos - Vector2(size.x / 2.0, -size.y / 4.0) # Ajustement ligne de base
+
+draw_string(font, pos, icon_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
+```
 
 
 ---

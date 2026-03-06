@@ -123,6 +123,7 @@ func _spawn_figure_from_data(figure_data: FigureData, p_is_fleet_figure: bool = 
 	# Connect figure specific requests that main still needs to handle (like slot deletion)
 	figure_node.slot_delete_requested.connect(_on_slot_delete)
 	figure_node.slot_remove_link_requested.connect(_on_slot_remove_link)
+	figure_node.slot_context_menu_requested.connect(_on_slot_context_menu_requested)
 	
 	return figure_node
 
@@ -201,7 +202,7 @@ func _load_graph(data: Dictionary) -> void:
 		var fleet_id := StringName(fleet_id_str)
 		var slot_id := StringName(str(saved_mapping[fleet_id_str]))
 		if _fleet_figure:
-			for slot_data: Node in _fleet_figure.data.output_slots:
+			for slot_data: SlotData in _fleet_figure.data.output_slots:
 				if slot_data.id == slot_id:
 					_fleet_to_slot[fleet_id] = slot_data
 					break
@@ -257,6 +258,25 @@ func _on_link_replace_requested(source_slot: Node, target_slot: Node, old_link: 
 func _on_slot_remove_link(slot: Node, _figure: Node) -> void:
 	workspace.links_layer.remove_links_for_slot_id(slot.data.id)
 	workspace.links_layer.refresh()
+
+func _on_slot_context_menu_requested(slot: Node, figure: Figure, global_pos: Vector2) -> void:
+	var links: Array[LinkData] = workspace.links_layer.find_links_for_slot(slot.data.id)
+	if not links.is_empty():
+		# Pour l'instant on prend le premier lien si plusieurs existent (cas sortie N:1)
+		# Dans l'idéal on pourrait lister les liens, mais restons sur 1:1 pour le moment.
+		workspace.links_layer.open_context_menu_for_link(links[0], global_pos)
+	else:
+		# Pas de lien : menu simple pour l'emplacement
+		var popup := PopupMenu.new()
+		popup.add_item("Supprimer l'emplacement", 0)
+		popup.set_item_icon_modulate(0, Color(0.9, 0.25, 0.25))
+		popup.id_pressed.connect(func(id):
+			if id == 0: _on_slot_delete(slot, figure)
+			popup.queue_free()
+		)
+		add_child(popup)
+		popup.position = Vector2i(global_pos)
+		popup.popup()
 
 func _on_slot_delete(slot: Node, figure: Node) -> void:
 	# Logic preserved from main.gd

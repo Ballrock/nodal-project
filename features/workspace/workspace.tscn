@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://features/workspace/workspace.gd" id="1"]
 [ext_resource type="Script" path="res://features/workspace/components/links_layer.gd" id="2"]
 [ext_resource type="Script" path="res://features/workspace/components/minimap.gd" id="3"]
+[ext_resource type="FontFile" path="res://assets/fonts/material_symbols_rounded.ttf" id="5_font"]
 [ext_resource type="Shader" path="res://features/workspace/assets/grid.gdshader" id="4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_grid"]
@@ -13,6 +14,19 @@ shader_parameter/major_line_color = Color(0.18, 0.18, 0.2, 1)
 shader_parameter/grid_size = 50.0
 shader_parameter/major_grid_step = 5.0
 shader_parameter/line_width = 1.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_iconbar"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.12, 0.12, 0.15, 0.95)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0, 0, 0, 0.2)
+shadow_size = 4
 
 [node name="Workspace" type="Control"]
 layout_mode = 3
@@ -83,7 +97,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+mouse_filter = 1
 script = ExtResource("2")
 
 [node name="Minimap" type="Control" parent="CanvasArea"]
@@ -102,3 +116,29 @@ offset_bottom = -10.0
 grow_horizontal = 0
 grow_vertical = 0
 script = ExtResource("3")
+
+[node name="IconBar" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -48.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 48.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_iconbar")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="IconBar"]
+layout_mode = 2
+alignment = 1
+
+[node name="RecenterButton" type="Button" parent="IconBar/HBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+tooltip_text = "Recentrer la vue"
+theme_override_fonts/font = ExtResource("5_font")
+theme_override_font_sizes/font_size = 20
+text = "center_focus_strong"

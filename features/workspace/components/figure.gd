@@ -12,6 +12,8 @@ signal slots_changed(figure: Figure)
 signal slot_remove_link_requested(slot: Slot, figure: Figure)
 ## Émis quand l'utilisateur demande la suppression d'un emplacement via menu contextuel.
 signal slot_delete_requested(slot: Slot, figure: Figure)
+## Émis quand le menu contextuel d'un slot est demandé.
+signal slot_context_menu_requested(slot: Slot, figure: Figure, global_pos: Vector2)
 ## Émis quand le titre de la figure est modifié par l'utilisateur.
 signal title_changed(figure: Figure)
 
@@ -193,38 +195,10 @@ func _on_add_slot_pair() -> void:
 
 # ── Menu contextuel sur un slot (clic droit) ─────────────
 
-var _ctx_menu_slot: Slot = null
-var _ctx_popup: PopupMenu = null
-
 func _on_slot_context_menu(slot: Slot, at_position: Vector2) -> void:
 	if is_fleet_figure:
 		return
-	_ctx_menu_slot = slot
-	if _ctx_popup:
-		_ctx_popup.queue_free()
-	_ctx_popup = PopupMenu.new()
-	_ctx_popup.add_item("Supprimer le lien", 0)
-	_ctx_popup.add_separator()
-	_ctx_popup.add_item("Supprimer l'emplacement", 1)
-	# Colorer l'option supprimer en rouge via index
-	_ctx_popup.set_item_icon_modulate(2, Color(0.9, 0.25, 0.25))
-	_ctx_popup.id_pressed.connect(_on_ctx_menu_id_pressed)
-	add_child(_ctx_popup)
-	_ctx_popup.position = Vector2i(int(at_position.x), int(at_position.y))
-	_ctx_popup.popup()
-
-
-func _on_ctx_menu_id_pressed(id: int) -> void:
-	if _ctx_menu_slot == null:
-		return
-	match id:
-		0:
-			# Supprimer le lien
-			slot_remove_link_requested.emit(_ctx_menu_slot, self)
-		1:
-			# Supprimer l'emplacement (et son symétrique)
-			slot_delete_requested.emit(_ctx_menu_slot, self)
-	_ctx_menu_slot = null
+	slot_context_menu_requested.emit(slot, self, at_position)
 
 
 ## Retourne tous les Slot instanciés dans cette boîte.
