@@ -14,22 +14,26 @@ signal slot_remove_link_requested(slot: Slot, figure: Figure)
 signal slot_delete_requested(slot: Slot, figure: Figure)
 ## Émis quand le menu contextuel d'un slot est demandé.
 signal slot_context_menu_requested(slot: Slot, figure: Figure, global_pos: Vector2)
+## Émis quand l'utilisateur demande la configuration de la figure.
+signal config_requested(figure: Figure)
 ## Émis quand le titre de la figure est modifié par l'utilisateur.
 signal title_changed(figure: Figure)
+## Émis quand la couleur de la figure est modifiée.
+signal color_changed(figure: Figure)
 
 const SLOT_SCENE := preload("res://features/workspace/components/slot.tscn")
+const MODAL_WINDOW_SCENE := preload("res://ui/components/modal_window.tscn")
 
 @onready var title_label: Label = %TitleLabel
 @onready var header: PanelContainer = %Header
 @onready var _slots_container: VBoxContainer = %SlotsContainer
+@onready var details_btn: Button = %DetailsBtn
 
 var data: FigureData
 
 var _dragging: bool = false
 var _drag_offset: Vector2 = Vector2.ZERO
 var _is_selected: bool = false
-var _editing_title: bool = false
-var _title_edit: LineEdit = null
 
 ## Si true, la boîte est la FleetFigure spéciale (pas de boutons +/−, non supprimable).
 var is_fleet_figure: bool = false
@@ -46,6 +50,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_set_children_mouse_filter(self)
 	_apply_data()
+	
+	details_btn.pressed.connect(_on_details_btn_pressed)
 
 
 ## Parcourt récursivement tous les enfants et force MOUSE_FILTER_PASS
@@ -231,6 +237,14 @@ func _apply_header_color(color: Color) -> void:
 	var style := header.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
 	style.bg_color = color
 	header.add_theme_stylebox_override("panel", style)
+	
+	# Contraste pour le texte et les boutons du header
+	var text_color := Color.BLACK if color.get_luminance() > 0.5 else Color.WHITE
+	title_label.add_theme_color_override("font_color", text_color)
+	details_btn.add_theme_color_override("font_color", text_color)
+	details_btn.add_theme_color_override("font_hover_color", text_color)
+	details_btn.add_theme_color_override("font_pressed_color", text_color)
+	details_btn.add_theme_color_override("font_focus_color", text_color)
 
 
 # ── Sélection ─────────────────────────────────────────────
@@ -258,26 +272,18 @@ func _update_selection_style() -> void:
 
 
 # ── Drag & Drop ───────────────────────────────────────────
-# _gui_input  → démarre le drag (souris sur le nœud)
-# _input      → arrête le drag (relâchement global, même hors bounds)
-# _process    → déplace le nœud via get_global_mouse_position() pour ne pas
-#               perdre les events quand la souris sort des bounds du Control.
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			if mb.double_click:
-				# Double-clic sur le header → éditer le titre
-				var local_pos := header.get_local_mouse_position()
-				if header.get_rect().size != Vector2.ZERO and local_pos.y >= 0 and local_pos.y <= header.size.y:
-					_start_title_edit()
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				if mb.double_click:
+					config_requested.emit(self)
 					accept_event()
 					return
-			# Ne pas démarrer un drag si on est en édition de titre
-			if _editing_title:
-				return
-			_dragging = true
+				
+				_dragging = true
 			# Offset entre la position globale du nœud et la souris au moment du clic
 			_drag_offset = get_global_mouse_position() - global_position
 			# Passe au-dessus des autres boîtes pendant le drag
@@ -299,101 +305,107 @@ func _input(event: InputEvent) -> void:
 		_sync_position_to_data()
 		drag_ended.emit(self)
 
-	# Si on est en édition de titre et qu'un clic survient en dehors du LineEdit → valider
-	if _editing_title and mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-		if _title_edit and is_instance_valid(_title_edit):
-			var edit_rect := Rect2(_title_edit.global_position, _title_edit.size)
-			if not edit_rect.has_point(mb.global_position):
-				_commit_title_edit()
-
 
 func _process(_delta: float) -> void:
 	if _dragging:
 		global_position = get_global_mouse_position() - _drag_offset
 
 
-# ── Édition du titre (double-clic) ───────────────────────
-
-## Démarre l'édition du titre : remplace le Label par un LineEdit.
-func _start_title_edit() -> void:
-	if _editing_title:
-		return
-	_editing_title = true
-	# Annule un éventuel drag en cours (déclenché par le 1er clic du double-clic)
-	if _dragging:
-		_dragging = false
-		drag_ended.emit(self)
-
-	title_label.visible = false
-
-	_title_edit = LineEdit.new()
-	_title_edit.text = data.title
-	_title_edit.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_edit.select_all_on_focus = true
-	# Style transparent pour s'intégrer dans le header
-	_title_edit.add_theme_color_override("font_color", title_label.get_theme_color("font_color"))
-	var flat_style := StyleBoxFlat.new()
-	flat_style.bg_color = Color(0, 0, 0, 0.2)
-	flat_style.set_content_margin_all(2)
-	_title_edit.add_theme_stylebox_override("normal", flat_style)
-	_title_edit.add_theme_stylebox_override("focus", flat_style)
-
-	header.add_child(_title_edit)
-	_title_edit.grab_focus()
-	_title_edit.select_all()
-
-	# Validation par Enter
-	_title_edit.text_submitted.connect(_on_title_edit_submitted)
-	# Annulation par Escape (géré dans _title_edit_input)
-	_title_edit.gui_input.connect(_on_title_edit_input)
-
-
-## Valide la modification du titre.
-func _commit_title_edit() -> void:
-	if not _editing_title:
-		return
-	var new_title := _title_edit.text.strip_edges()
-	if new_title.is_empty():
-		new_title = data.title  # Garde l'ancien titre si vide
-	data.title = new_title
-	title_label.text = new_title
-	_end_title_edit()
-	title_changed.emit(self)
-
-
-## Annule la modification du titre.
-func _cancel_title_edit() -> void:
-	if not _editing_title:
-		return
-	_end_title_edit()
-
-
-## Nettoie le LineEdit et restaure le Label.
-func _end_title_edit() -> void:
-	_editing_title = false
-	if _title_edit and is_instance_valid(_title_edit):
-		_title_edit.queue_free()
-		_title_edit = null
-	title_label.visible = true
-
-
-func _on_title_edit_submitted(_text: String) -> void:
-	_commit_title_edit()
-
-
-func _on_title_edit_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			# Empêche le clic dans le LineEdit de démarrer un drag
-			accept_event()
-	if event is InputEventKey:
-		var ke := event as InputEventKey
-		if ke.pressed and ke.keycode == KEY_ESCAPE:
-			_cancel_title_edit()
-			accept_event()
-
-
 func _sync_position_to_data() -> void:
 	if data:
 		data.position = position
+
+
+# ── Menu de détails ───────────────────────────────────────
+
+func _on_details_btn_pressed() -> void:
+	var popup := PopupMenu.new()
+	popup.add_item("Configurer", 0)
+	popup.add_separator()
+	popup.add_item("Renommer la figure", 1)
+	popup.add_item("Changer la couleur", 2)
+	
+	popup.id_pressed.connect(_on_details_menu_id_pressed)
+	add_child(popup)
+	
+	# Positionne le menu sous le bouton
+	var btn_rect: Rect2 = details_btn.get_global_rect()
+	popup.position = Vector2i(btn_rect.position.x, btn_rect.end.y)
+	popup.popup()
+
+
+func _on_details_menu_id_pressed(id: int) -> void:
+	match id:
+		0: config_requested.emit(self)
+		1: _show_rename_dialog()
+		2: _show_color_dialog()
+
+
+func _show_rename_dialog() -> void:
+	var modal = MODAL_WINDOW_SCENE.instantiate()
+	get_tree().root.add_child(modal)
+	modal.setup("Renommer la figure")
+	
+	var edit := LineEdit.new()
+	edit.text = data.title
+	edit.placeholder_text = "Nouveau nom..."
+	edit.select_all_on_focus = true
+	modal.add_content(edit)
+	
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Annuler"
+	cancel_btn.pressed.connect(modal.close)
+	btn_row.add_child(cancel_btn)
+	
+	var ok_btn := Button.new()
+	ok_btn.text = "Valider"
+	ok_btn.pressed.connect(func():
+		var new_title := edit.text.strip_edges()
+		if not new_title.is_empty():
+			set_title(new_title)
+			title_changed.emit(self)
+		modal.close()
+	)
+	btn_row.add_child(ok_btn)
+	
+	modal.add_content(btn_row)
+	edit.grab_focus()
+	edit.text_submitted.connect(func(_t): ok_btn.pressed.emit())
+
+
+func _show_color_dialog() -> void:
+	var modal = MODAL_WINDOW_SCENE.instantiate()
+	get_tree().root.add_child(modal)
+	modal.setup("Changer la couleur")
+	
+	var picker := ColorPicker.new()
+	picker.color = data.color
+	picker.edit_alpha = false
+	picker.sampler_visible = false
+	picker.color_modes_visible = false
+	picker.sliders_visible = false
+	picker.presets_visible = true
+	modal.add_content(picker)
+	
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Annuler"
+	cancel_btn.pressed.connect(modal.close)
+	btn_row.add_child(cancel_btn)
+	
+	var ok_btn := Button.new()
+	ok_btn.text = "Valider"
+	ok_btn.pressed.connect(func():
+		data.color = picker.color
+		_apply_header_color(data.color)
+		color_changed.emit(self)
+		modal.close()
+	)
+	btn_row.add_child(ok_btn)
+	
+	modal.add_content(btn_row)

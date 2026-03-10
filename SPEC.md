@@ -45,9 +45,9 @@ Main (Control, plein écran)
 ├── FleetPanel (PanelContainer — volet latéral gauche, overlay ~250px, collapsible)
 │   ├── FleetPanelHeader (HBoxContainer — titre "Flottes" + bouton +)
 │   └── FleetList (VBoxContainer — liste scrollable des flottes)
-├── FleetDialog (Control — dialogue modal centré, masqué par défaut)
+├── FleetDialog (Window — dialogue modal centré, géré par l'OS)
 │   └── FleetForm (VBoxContainer — nom, type de drone, nombre)
-├── ConfigPanel (Control — panneau latéral de configuration, masqué par défaut)
+├── ConfigWindow (Window — fenêtre flottante de configuration, multi-instance)
 │   ├── SlotListEditor (liste d'emplacements modifiable)
 │   └── FigurePropertiesEditor (propriétés générales de la figure)
 ├── Toolbar (HBoxContainer — barre d'outils en haut)
@@ -233,13 +233,14 @@ Main (Control, plein écran)
 
 ---
 
-## 7. Panneau de configuration (ConfigPanel)
+## 7. Fenêtre de configuration (ConfigWindow)
 
 ### 7.1. Ouverture
 
 - Double-clic sur une boîte, ou clic droit → "Configurer".
-- S'affiche en panneau latéral droit (slide-in, ~300 px de large).
-- Ne masque pas le canvas (le canvas se redimensionne ou le panneau est en overlay).
+- Ouvre une **fenêtre flottante indépendante** (héritant de `Window`).
+- **Multi-instance** : Il est possible d'ouvrir plusieurs fenêtres simultanément (une par boîte). Le titre de la fenêtre affiche le nom de la boîte correspondante.
+- Si une fenêtre est déjà ouverte pour une boîte spécifique, l'action la ramène au premier plan (focus).
 
 ### 7.2. Contenu
 
@@ -254,7 +255,8 @@ Main (Control, plein écran)
 
 - Les modifications sont appliquées **en temps réel** sur la boîte visible dans le canvas.
 - La réorganisation des slots (drag dans la liste) met à jour les positions des câbles connectés.
-- Fermeture : bouton ✕ ou clic en dehors du panneau, ou touche `Escape`.
+- Fermeture : Bouton ✕ de la fenêtre (natif OS) ou touche `Escape` quand la fenêtre a le focus.
+- **Non-modale** : L'utilisateur peut continuer à interagir avec le canvas nodal même quand une ou plusieurs fenêtres de configuration sont ouvertes.
 
 ---
 
@@ -576,6 +578,54 @@ draw_string(font, pos, icon_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Co
 
 ---
 
+## 19. Barre de menus (Toolbar)
+
+La barre de menus est située en haut de l'interface et permet d'accéder aux fonctions globales de l'application.
+
+| Menu | Sous-menu | Raccourci | Action |
+|---|---|---|---|
+| **Fichier** | Sauvegarder | `Ctrl + S` | Enregistre le graphe au format JSON |
+| | Charger | `Ctrl + O` | Ouvre un graphe à partir d'un fichier JSON |
+| | Paramètres Généraux | | Gère les options globales du logiciel |
+| | Quitter | | Ferme l'application |
+| **Scénographie** | Paramètres | | Gère les options de la scénographie actuelle |
+| **Tolz** | | | (Menu vide pour l'instant) |
+| **Élément** | Ajouter une Figure | | Crée une nouvelle boîte au centre du canvas |
+
+---
+
+## 20. Système de Paramètres (Settings)
+
+### 20.1. Gestionnaire de Paramètres (SettingsManager)
+Un singleton (`Autoload`) gère les paramètres de manière data-driven avec deux portées (**scopes**) :
+- **GLOBAL** : Paramètres du logiciel (langue, nacelles). Sauvegardés dans `user://settings.json`.
+- **PROJECT** : Paramètres propres au fichier ouvert (nom du projet, nombre de drones). Sérialisés dans le JSON du projet.
+
+**Attributs d'un paramètre** :
+- `key` : Identifiant unique (ex: "scenography/drone_count").
+- `scope` : `GLOBAL` ou `PROJECT`.
+- `type` : Type de donnée (Nombre, String, Tableau, JSON, Booléen).
+- `default_value` : Valeur initiale.
+- `value` : Valeur actuelle.
+- `last_modified` : Horodatage de la dernière modification.
+- `category` : Catégorie d'affichage.
+
+### 20.2. Fenêtres de Paramètres
+L'interface de configuration s'adapte selon le point d'entrée :
+- **Paramètres Logiciel** (via Fichier) : Affiche uniquement les paramètres `GLOBAL`.
+  - Catégorie **Nacelles** : Affiche la version du fichier et la liste des nacelles disponibles.
+- **Paramètres Scénographie** (via Scénographie) : Affiche uniquement les paramètres `PROJECT`.
+  - Catégorie **Général** : Nom de la scénographie.
+  - Catégorie **Drones** : Nombre de drones.
+
+**Interactions et Validation** :
+- Les modifications effectuées dans la fenêtre sont **temporaires** (stockées dans un draft).
+- **Bouton Appliquer** : Valide les changements, les applique au `SettingsManager` et ferme la fenêtre.
+- **Bouton Annuler / ✕** : Ferme la fenêtre en ignorant les modifications en cours.
+- La persistance (globale ou projet) n'a lieu qu'au moment de l'appui sur "Appliquer".
+
+---
+
 ## Décisions techniques
 
 - **GDScript** retenu comme langage unique.
@@ -595,4 +645,5 @@ draw_string(font, pos, icon_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Co
 - **Gestion inline des slots** : bouton "+" directement sur la boîte pour ajouter, clic droit → menu contextuel pour supprimer un lien ou un emplacement.
 - **Liens stockés par ID** : `LinksLayer` stocke les liens par `SlotData.id` / `FigureData.id` et résout les nœuds `Slot` à la volée, pour survivre aux reconstructions de la scène interne des figures (_build_slots).
 - **Gestion des menus externalisée** : la classe `MenuManager` (RefCounted) configure les PopupMenu et émet des signaux, pour découpler la logique menu de `main.gd`.
+- **Système de paramètres centralisé** : Un autoload `SettingsManager` gère la déclaration et la persistance des options, découplant la logique métier de l'interface de configuration.
 - **Sérialisation JSON** : `GraphSerializer` convertit l'état complet du graphe (figures, liens, flottes, zoom, timeline_scale, mapping fleet→slot) en JSON. Le chargement efface puis reconstruit l'état.

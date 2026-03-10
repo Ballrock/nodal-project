@@ -1,0 +1,132 @@
+[gd_scene format=3 uid="uid://bv4f7g7m8x2b1"]
+
+[ext_resource type="Script" path="res://ui/components/config_window.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
+bg_color = Color(0.12, 0.12, 0.15, 1)
+content_margin_left = 16.0
+content_margin_top = 16.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
+
+[node name="ConfigWindow" type="Window"]
+title = "Configuration"
+initial_position = 2
+size = Vector2i(400, 500)
+visible = false
+wrap_controls = true
+transient = true
+exclusive = false
+unresizable = false
+script = ExtResource("1_script")
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bg")
+
+[node name="VBox" type="VBoxContainer" parent="PanelContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="GeneralSection" type="VBoxContainer" parent="PanelContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="PanelContainer/VBox/GeneralSection"]
+layout_mode = 2
+text = "Général"
+
+[node name="HSeparator" type="HSeparator" parent="PanelContainer/VBox/GeneralSection"]
+layout_mode = 2
+
+[node name="TitleRow" type="HBoxContainer" parent="PanelContainer/VBox/GeneralSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/VBox/GeneralSection/TitleRow"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "Titre"
+
+[node name="TitleEdit" type="LineEdit" parent="PanelContainer/VBox/GeneralSection/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Nom de la figure..."
+
+[node name="ColorRow" type="HBoxContainer" parent="PanelContainer/VBox/GeneralSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/VBox/GeneralSection/ColorRow"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "Couleur"
+
+[node name="ColorPicker" type="ColorPickerButton" parent="PanelContainer/VBox/GeneralSection/ColorRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Couleur"
+edit_alpha = false
+
+[node name="SlotsSection" type="VBoxContainer" parent="PanelContainer/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="PanelContainer/VBox/SlotsSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/VBox/SlotsSection/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Emplacements (Slots)"
+
+[node name="AddSlotBtn" type="Button" parent="PanelContainer/VBox/SlotsSection/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = " + Ajouter une paire "
+
+[node name="HSeparator" type="HSeparator" parent="PanelContainer/VBox/SlotsSection"]
+layout_mode = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/VBox/SlotsSection"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HBox" type="HBoxContainer" parent="PanelContainer/VBox/SlotsSection/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 20
+
+[node name="Inputs" type="VBoxContainer" parent="PanelContainer/VBox/SlotsSection/ScrollContainer/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="PanelContainer/VBox/SlotsSection/ScrollContainer/HBox/Inputs"]
+layout_mode = 2
+text = "Entrées"
+horizontal_alignment = 1
+
+[node name="InputSlotsContainer" type="VBoxContainer" parent="PanelContainer/VBox/SlotsSection/ScrollContainer/HBox/Inputs"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Outputs" type="VBoxContainer" parent="PanelContainer/VBox/SlotsSection/ScrollContainer/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="PanelContainer/VBox/SlotsSection/ScrollContainer/HBox/Outputs"]
+layout_mode = 2
+text = "Sorties"
+horizontal_alignment = 1
+
+[node name="OutputSlotsContainer" type="VBoxContainer" parent="PanelContainer/VBox/SlotsSection/ScrollContainer/HBox/Outputs"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4

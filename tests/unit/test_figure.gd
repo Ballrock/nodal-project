@@ -75,22 +75,39 @@ func test_set_selected_updates_style() -> void:
 	assert_eq(style.border_color, Color("555555"))
 
 
-func test_title_edit_commit() -> void:
-	var data := FigureData.create("Original", Vector2.ZERO)
+func test_details_button_exists() -> void:
+	var data := FigureData.create("My Figure", Vector2(100, 100), 1, 1)
 	_figure.setup(data)
-	watch_signals(_figure)
 	
-	_figure.call("_start_title_edit")
-	var edit: LineEdit = _figure.get_node("%Header").get_child(-1) as LineEdit
-	assert_not_null(edit, "LineEdit doit être présent")
+	var btn := _figure.get_node("%DetailsBtn")
+	assert_not_null(btn, "Le bouton détails doit exister")
+	assert_eq(btn.text, "more_vert")
+
+
+func test_details_button_opens_menu() -> void:
+	var data := FigureData.create("My Figure", Vector2(100, 100), 1, 1)
+	_figure.setup(data)
 	
-	edit.text = "New Title"
-	_figure.call("_commit_title_edit")
+	var btn := _figure.get_node("%DetailsBtn")
+	btn.pressed.emit()
 	
-	assert_eq(data.title, "New Title")
-	assert_eq(_figure.get_node("%TitleLabel").text, "New Title")
-	assert_signal_emitted(_figure, "title_changed")
-	assert_true(edit.is_queued_for_deletion(), "LineEdit doit être en cours de suppression")
+	# Le PopupMenu est ajouté comme enfant de la figure dans _on_details_btn_pressed
+	var found_popup := false
+	for child in _figure.get_children():
+		if child is PopupMenu:
+			found_popup = true
+			break
+	
+	assert_true(found_popup, "Un PopupMenu doit être créé lors du clic sur le bouton détails")
+
+
+func test_set_title_updates_data_and_ui() -> void:
+	var data := FigureData.create("Old", Vector2.ZERO)
+	_figure.setup(data)
+	
+	_figure.set_title("New")
+	assert_eq(data.title, "New")
+	assert_eq(_figure.get_node("%TitleLabel").text, "New")
 
 
 func test_find_slot_by_id() -> void:

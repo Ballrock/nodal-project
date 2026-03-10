@@ -1,0 +1,20 @@
+[gd_resource type="Theme" format=3]
+
+[resource]
+default_font_size = 16
+Button/font_sizes/font_size = 16
+Label/font_sizes/font_size = 16
+LabelLarge/base_type = &"Label"
+LabelLarge/font_sizes/font_size = 18
+LabelMedium/base_type = &"Label"
+LabelMedium/font_sizes/font_size = 16
+LineEdit/font_sizes/font_size = 16
+OptionButton/font_sizes/font_size = 16
+PopupMenu/font_sizes/font_size = 16
+Tree/font_sizes/font_size = 16
+CheckBox/font_sizes/font_size = 16
+SpinBox/font_sizes/font_size = 16
+MenuBar/font_sizes/font_size = 16
+HeaderLarge/font_sizes/font_size = 20
+HeaderMedium/font_sizes/font_size = 18
+HeaderSmall/font_sizes/font_size = 16

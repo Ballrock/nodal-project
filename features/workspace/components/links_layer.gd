@@ -46,8 +46,6 @@ var _is_right_button_down: bool = false
 func _ready() -> void:
 	# Cette couche laisse passer les events si non capturés par les liens
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	# On se place au dessus des boites (Z=0) mais sous les slots (Z=2)
-	z_index = 1
 
 
 func _process(_delta: float) -> void:
@@ -599,7 +597,7 @@ func _draw_lock_icon(from: Vector2, to: Vector2, link_color: Color) -> void:
 		return
 
 	var icon_name := "lock"
-	var font_size := 16 # Légèrement plus petit pour bien tenir dans le cercle
+	var font_size := 12 # Légèrement plus petit pour bien tenir dans le cercle
 	var icon_color := Color.WHITE
 
 	var string_size := _icon_font.get_string_size(icon_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)

@@ -39,9 +39,6 @@ func _ready() -> void:
 	_circle.mouse_entered.connect(_on_circle_mouse_entered)
 	_circle.mouse_exited.connect(_on_circle_mouse_exited)
 	
-	# Z-Index pour passer au dessus des liens (Z=1)
-	_circle.z_index = 2
-	
 	if data:
 		_apply_data()
 

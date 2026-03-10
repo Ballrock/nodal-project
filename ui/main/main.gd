@@ -8,6 +8,7 @@ const FleetData := preload("res://core/data/fleet_data.gd")
 const LinkData := preload("res://core/data/link_data.gd")
 const GraphSerializer := preload("res://core/serialization/graph_serializer.gd")
 const MenuManager := preload("res://core/utils/menu_manager.gd")
+const CONFIG_WINDOW_SCENE := preload("res://ui/components/config_window.tscn")
 
 ## Couleur d'en-tête de la boîte Flotte (verte, cf. spec §14.3).
 const FLEET_FIGURE_COLOR := Color(0.33, 0.75, 0.42)
@@ -15,11 +16,15 @@ const FLEET_FIGURE_COLOR := Color(0.33, 0.75, 0.42)
 @onready var workspace: Node = %Workspace
 @onready var fleet_panel: Node = %FleetPanel
 @onready var fleet_dialog: Node = %FleetDialog
+@onready var settings_window: Node = %SettingsWindow
 @onready var timeline_panel: Node = %TimelinePanel
 @onready var _toolbar: MenuBar = %Toolbar
 
 ## Registre des boîtes par id pour résoudre les liens (pour la sérialisation/logique métier).
 var _figures_by_id: Dictionary = {}
+
+## Registre des fenêtres de configuration ouvertes (figure_id -> Window).
+var _config_windows: Dictionary = {}
 
 ## La boîte Flotte spéciale (non supprimable, 0 entrées, N sorties = flottes).
 var _fleet_figure: Node = null
@@ -37,6 +42,8 @@ var _figure_counter: int = 0
 
 # ── Menu ──────────────────────────────────────────────────
 @onready var _fichier_menu: PopupMenu = %Fichier
+@onready var _scenographie_menu: PopupMenu = %"Scénographie"
+@onready var _tolz_menu: PopupMenu = %"Tolz"
 @onready var _element_menu: PopupMenu = %"Élément"
 var _menu_manager: MenuManager
 var _save_dialog: FileDialog
@@ -50,9 +57,12 @@ func _ready() -> void:
 
 	# ── Menus ──
 	_menu_manager = MenuManager.new()
-	_menu_manager.setup(_fichier_menu, _element_menu)
+	_menu_manager.setup(_fichier_menu, _scenographie_menu, _tolz_menu, _element_menu)
 	_menu_manager.save_requested.connect(_on_save_requested)
 	_menu_manager.load_requested.connect(_on_load_requested)
+	_menu_manager.global_settings_requested.connect(settings_window.open_global)
+	_menu_manager.quit_requested.connect(func(): get_tree().quit())
+	_menu_manager.scenography_settings_requested.connect(settings_window.open_project)
 	_menu_manager.add_figure_requested.connect(_add_figure)
 
 	# ── Dialogues fichier ──
@@ -124,6 +134,9 @@ func _spawn_figure_from_data(figure_data: FigureData, p_is_fleet_figure: bool = 
 	figure_node.slot_delete_requested.connect(_on_slot_delete)
 	figure_node.slot_remove_link_requested.connect(_on_slot_remove_link)
 	figure_node.slot_context_menu_requested.connect(_on_slot_context_menu_requested)
+	figure_node.config_requested.connect(_on_config_requested)
+	figure_node.title_changed.connect(func(_f): _sync_timeline())
+	figure_node.color_changed.connect(func(_f): _sync_timeline())
 	
 	return figure_node
 
@@ -176,6 +189,10 @@ func _load_graph(data: Dictionary) -> void:
 	workspace.set_canvas_zoom(float(data.get("canvas_zoom", 1.0)))
 	timeline_panel.timeline_scale = float(data.get("timeline_scale", 100.0))
 
+	# Paramètres du projet
+	if data.has("project_settings"):
+		SettingsManager.load_project_settings_dict(data["project_settings"])
+
 	var figures_data: Array = data.get("figures", [])
 	for fig_dict: Dictionary in figures_data:
 		var figure_data := GraphSerializer.dict_to_figure_data(fig_dict)
@@ -217,6 +234,31 @@ func _load_graph(data: Dictionary) -> void:
 	workspace.links_layer.refresh()
 
 # ── Signals Handlers ──
+
+func _on_config_requested(figure: Figure) -> void:
+	var figure_id := figure.data.id
+	
+	if _config_windows.has(figure_id):
+		var window = _config_windows[figure_id]
+		if is_instance_valid(window):
+			window.grab_focus()
+			return
+		else:
+			_config_windows.erase(figure_id)
+	
+	var window = CONFIG_WINDOW_SCENE.instantiate()
+	get_tree().root.add_child(window)
+	window.setup(figure)
+	_config_windows[figure_id] = window
+	
+	# Centrer par rapport à la fenêtre principale
+	var root_pos = get_window().position
+	var root_size = get_window().size
+	window.position = root_pos + (root_size - window.size) / 2
+	
+	window.closed.connect(func(id: StringName):
+		_config_windows.erase(id)
+	)
 
 func _on_figure_selected(figure: Node) -> void:
 	if _syncing_selection: return

@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3 uid="uid://dbvgyfpnxbjm"]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://ui/main/main.gd" id="1"]
 [ext_resource type="PackedScene" path="res://features/fleet/fleet_panel.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://features/workspace/workspace.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://features/timeline/timeline_panel.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://features/fleet/fleet_dialog.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://ui/components/settings_window.tscn" id="6"]
+[ext_resource type="Theme" path="res://assets/themes/main_theme.tres" id="7"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -13,6 +15,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("7")
 script = ExtResource("1")
 
 [node name="RootVBox" type="VBoxContainer" parent="."]
@@ -28,6 +31,12 @@ unique_name_in_owner = true
 layout_mode = 2
 
 [node name="Fichier" type="PopupMenu" parent="RootVBox/Toolbar"]
+unique_name_in_owner = true
+
+[node name="Scénographie" type="PopupMenu" parent="RootVBox/Toolbar"]
+unique_name_in_owner = true
+
+[node name="Tolz" type="PopupMenu" parent="RootVBox/Toolbar"]
 unique_name_in_owner = true
 
 [node name="Élément" type="PopupMenu" parent="RootVBox/Toolbar"]
@@ -59,4 +68,7 @@ layout_mode = 2
 [node name="FleetDialog" parent="." instance=ExtResource("5")]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
+
+[node name="SettingsWindow" parent="." instance=ExtResource("6")]
+unique_name_in_owner = true
+visible = false

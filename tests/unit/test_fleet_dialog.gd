@@ -21,7 +21,7 @@ func test_initial_state() -> void:
 func test_open_create() -> void:
 	_dialog.open_create()
 	assert_true(_dialog.visible, "Doit être visible")
-	assert_eq(_dialog.get_node("%DialogTitle").text, "Nouvelle flotte")
+	assert_eq(_dialog.title, "Nouvelle flotte")
 	assert_eq(_dialog.get_node("%NameEdit").text, "")
 	assert_false(_dialog.get_node("%DeleteBtn").visible, "Bouton supprimer masqué en création")
 
@@ -30,7 +30,7 @@ func test_open_edit() -> void:
 	var fleet := FleetData.create("Alpha", FleetData.DroneType.DRONE_EMO, 10)
 	_dialog.open_edit(fleet)
 	assert_true(_dialog.visible)
-	assert_eq(_dialog.get_node("%DialogTitle").text, "Modifier la flotte")
+	assert_eq(_dialog.title, "Modifier la flotte : Alpha")
 	assert_eq(_dialog.get_node("%NameEdit").text, "Alpha")
 	assert_eq(_dialog.get_node("%CountSpin").value, 10)
 	assert_true(_dialog.get_node("%DeleteBtn").visible, "Bouton supprimer visible en édition")
@@ -91,15 +91,6 @@ func test_delete_emits_signal() -> void:
 func test_cancel_closes_dialog() -> void:
 	_dialog.open_create()
 	_dialog.get_node("%CancelBtn").pressed.emit()
-	assert_false(_dialog.visible)
-
-
-func test_overlay_click_closes_dialog() -> void:
-	_dialog.open_create()
-	var event := InputEventMouseButton.new()
-	event.button_index = MOUSE_BUTTON_LEFT
-	event.pressed = true
-	_dialog.get_node("%Overlay").gui_input.emit(event)
 	assert_false(_dialog.visible)
 
 

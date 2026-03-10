@@ -79,16 +79,6 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.11, 0.11, 0.13, 1)
 
-[node name="FigureContainer" type="Control" parent="CanvasArea/CanvasContent"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 1
-
 [node name="LinksLayer" type="Control" parent="CanvasArea/CanvasContent"]
 unique_name_in_owner = true
 layout_mode = 1
@@ -99,6 +89,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 script = ExtResource("2")
+
+[node name="FigureContainer" type="Control" parent="CanvasArea/CanvasContent"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
 
 [node name="Minimap" type="Control" parent="CanvasArea"]
 unique_name_in_owner = true
@@ -140,5 +140,4 @@ custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 tooltip_text = "Recentrer la vue"
 theme_override_fonts/font = ExtResource("5_font")
-theme_override_font_sizes/font_size = 20
 text = "center_focus_strong"

@@ -1,6 +1,7 @@
-[gd_scene format=3 uid="uid://bv523y6c8oxyg"]
+[gd_scene load_steps=10 format=3 uid="uid://bv523y6c8oxyg"]
 
 [ext_resource type="Script" uid="uid://cpctiya4e22au" path="res://features/workspace/components/figure.gd" id="1"]
+[ext_resource type="FontFile" uid="uid://chljdxfue4vt7" path="res://assets/fonts/material_symbols_rounded.ttf" id="2_font"]
 
 [sub_resource type="StyleBoxFlat" id="figure_panel"]
 content_margin_left = 0.0
@@ -20,12 +21,28 @@ corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="header_panel"]
 content_margin_left = 10.0
-content_margin_top = 6.0
+content_margin_top = 4.0
 content_margin_right = 10.0
-content_margin_bottom = 6.0
+content_margin_bottom = 4.0
 bg_color = Color(0.29, 0.56, 0.85, 1)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
+
+[sub_resource type="StyleBoxEmpty" id="btn_details_style"]
+
+[sub_resource type="StyleBoxFlat" id="btn_details_hover_style"]
+bg_color = Color(1, 1, 1, 0.15)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="btn_details_pressed_style"]
+bg_color = Color(1, 1, 1, 0.05)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="body_panel"]
 content_margin_left = 10.0
@@ -34,31 +51,46 @@ content_margin_right = 10.0
 content_margin_bottom = 8.0
 bg_color = Color(0, 0, 0, 0)
 
-[node name="Figure" type="PanelContainer" unique_id=968057237]
+[node name="Figure" type="PanelContainer"]
 custom_minimum_size = Vector2(200, 0)
 theme_override_styles/panel = SubResource("figure_panel")
 script = ExtResource("1")
 
-[node name="VBox" type="VBoxContainer" parent="." unique_id=1791525269]
+[node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 2
+theme_override_constants/separation = 0
 
-[node name="Header" type="PanelContainer" parent="VBox" unique_id=919000960]
+[node name="Header" type="PanelContainer" parent="VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/panel = SubResource("header_panel")
 
-[node name="TitleLabel" type="Label" parent="VBox/Header" unique_id=991481919]
+[node name="HeaderHBox" type="HBoxContainer" parent="VBox/Header"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="VBox/Header/HeaderHBox"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "Nouvelle figure"
 horizontal_alignment = 1
 
-[node name="Body" type="PanelContainer" parent="VBox" unique_id=451307877]
+[node name="DetailsBtn" type="Button" parent="VBox/Header/HeaderHBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_styles/normal = SubResource("btn_details_style")
+theme_override_styles/hover = SubResource("btn_details_hover_style")
+theme_override_styles/pressed = SubResource("btn_details_pressed_style")
+text = "more_vert"
+
+[node name="Body" type="PanelContainer" parent="VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/panel = SubResource("body_panel")
 
-[node name="SlotsContainer" type="VBoxContainer" parent="VBox/Body" unique_id=1131451404]
+[node name="SlotsContainer" type="VBoxContainer" parent="VBox/Body"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6

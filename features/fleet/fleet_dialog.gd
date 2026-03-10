@@ -1,5 +1,5 @@
 class_name FleetDialog
-extends Control
+extends Window
 
 ## Dialogue modal centré pour créer ou modifier une flotte de drones.
 ## Masqué par défaut. Ouvert via open_create() ou open_edit(fleet).
@@ -8,9 +8,6 @@ signal fleet_created(fleet: FleetData)
 signal fleet_updated(fleet: FleetData)
 signal fleet_deleted(fleet: FleetData)
 
-@onready var _overlay: ColorRect = %Overlay
-@onready var _panel: PanelContainer = %DialogPanel
-@onready var _title_label: Label = %DialogTitle
 @onready var _name_edit: LineEdit = %NameEdit
 @onready var _type_option: OptionButton = %TypeOption
 @onready var _count_spin: SpinBox = %CountSpin
@@ -21,10 +18,9 @@ signal fleet_deleted(fleet: FleetData)
 ## Flotte en cours d'édition (null = mode création).
 var _editing_fleet: FleetData = null
 
-
 func _ready() -> void:
 	visible = false
-	_overlay.gui_input.connect(_on_overlay_input)
+	close_requested.connect(_close)
 	_validate_btn.pressed.connect(_on_validate)
 	_cancel_btn.pressed.connect(_close)
 	_delete_btn.pressed.connect(_on_delete)
@@ -39,6 +35,9 @@ func _ready() -> void:
 	_count_spin.step = 1
 	_count_spin.value = 1
 
+func _show() -> void:
+	popup_centered()
+	_name_edit.grab_focus()
 
 func _input(event: InputEvent) -> void:
 	if not visible:
@@ -47,22 +46,20 @@ func _input(event: InputEvent) -> void:
 		_close()
 		get_viewport().set_input_as_handled()
 
-
 ## Ouvre le dialogue en mode création.
 func open_create() -> void:
 	_editing_fleet = null
-	_title_label.text = "Nouvelle flotte"
+	title = "Nouvelle flotte"
 	_name_edit.text = ""
 	_type_option.select(0)
 	_count_spin.value = 1
 	_delete_btn.visible = false
 	_show()
 
-
 ## Ouvre le dialogue en mode édition d'une flotte existante.
 func open_edit(fleet: FleetData) -> void:
 	_editing_fleet = fleet
-	_title_label.text = "Modifier la flotte"
+	title = "Modifier la flotte : " + fleet.name
 	_name_edit.text = fleet.name
 	# Sélectionne le bon type
 	for i in _type_option.item_count:
@@ -73,16 +70,9 @@ func open_edit(fleet: FleetData) -> void:
 	_delete_btn.visible = true
 	_show()
 
-
-func _show() -> void:
-	visible = true
-	_name_edit.grab_focus()
-
-
 func _close() -> void:
-	visible = false
+	hide()
 	_editing_fleet = null
-
 
 func _on_validate() -> void:
 	var fleet_name := _name_edit.text.strip_edges()
@@ -108,15 +98,7 @@ func _on_validate() -> void:
 
 	_close()
 
-
 func _on_delete() -> void:
 	if _editing_fleet:
 		fleet_deleted.emit(_editing_fleet)
 		_close()
-
-
-func _on_overlay_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			_close()

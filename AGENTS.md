@@ -1,4 +1,4 @@
-# GEMINI.md
+# AGENTS.md
 
 ## Source de vérité
 
@@ -24,6 +24,7 @@ Ce fichier constitue la référence unique pour :
 8. **Mettre en place les tests unitaires** pour toute nouvelle fonctionnalité ou modification significative, en suivant la structure définie dans le projet.
 9. **TU DOIS ABSOLUMENT Éxecuter l'application et les tests** pour s'assurer que tout fonctionne correctement après chaque modification majeure.
 10. **La couverture de test unitaire doit être d'au moins 80% des lignes de code (Line Coverage)**. Tout nouveau fichier source doit être accompagné de son fichier de test couvrant l'essentiel de sa logique interne.
+11. **NE RIEN FAIRE SANS QUE CE N'AIT ETE EXPLICITEMENT DEMANDÉ**. Toute tâche doit être validée par une demande explicite avant d'être exécutée, même si elle semble évidente ou nécessaire.
 
 ## Couverture des tests
 
@@ -35,7 +36,7 @@ La couverture est calculée automatiquement par l'addon `coverage` via les hooks
 Pour recalculer le taux :
 ```bash
 # Détection du binaire Godot
-GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot 4.6.app/Contents/MacOS/Godot")}
+GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot.app/Contents/MacOS/Godot")}
 
 # Lancer les tests avec hooks de couverture
 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd
@@ -59,7 +60,7 @@ Pour déterminer quel binaire utiliser dans les scripts (bash) :
 
 ```bash
 # Détection automatique (Bash)
-GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot 4.6.app/Contents/MacOS/Godot")}
+GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot.app/Contents/MacOS/Godot")}
 ```
 
 Pour PowerShell (Windows) :
@@ -73,10 +74,10 @@ $GODOT = if ($env:GODOT_PATH) { $env:GODOT_PATH } else { (Get-Command godot -Err
 
 ```bash
 # Open in Godot editor (local macOS)
-/Applications/Godot.app/Contents/MacOS/Godot --editor --path .
+"/Applications/Godot.app/Contents/MacOS/Godot" --editor --path .
 
 # Run the project directly
-GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot 4.6.app/Contents/MacOS/Godot")}
+GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot.app/Contents/MacOS/Godot")}
 $GODOT --path .
 ```
 
@@ -86,7 +87,7 @@ GUT est configuré avec `"should_exit": true` dans `.gutconfig.json`, ce qui fai
 
 ```bash
 # Détection du binaire Godot
-GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot 4.6.app/Contents/MacOS/Godot")}
+GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot.app/Contents/MacOS/Godot")}
 
 # Lancer tous les tests GUT
 timeout 120 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd

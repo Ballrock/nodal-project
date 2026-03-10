@@ -51,6 +51,9 @@ static func serialize_graph(
 		mapping[str(fleet_id)] = str(slot_data.id)
 	data["fleet_to_slot"] = mapping
 
+	# Paramètres du projet (Scénographie)
+	data["project_settings"] = SettingsManager.get_project_settings_dict()
+
 	return data
 
 

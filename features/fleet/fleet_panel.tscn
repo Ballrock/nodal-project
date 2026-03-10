@@ -61,7 +61,6 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Flottes"
-theme_override_font_sizes/font_size = 16
 
 [node name="AddBtn" type="Button" parent="FleetContent/FleetPanelHeader"]
 unique_name_in_owner = true
