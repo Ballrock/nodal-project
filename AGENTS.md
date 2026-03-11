@@ -25,6 +25,7 @@ Ce fichier constitue la référence unique pour :
 9. **TU DOIS ABSOLUMENT Éxecuter l'application et les tests** pour s'assurer que tout fonctionne correctement après chaque modification majeure.
 10. **La couverture de test unitaire doit être d'au moins 80% des lignes de code (Line Coverage)**. Tout nouveau fichier source doit être accompagné de son fichier de test couvrant l'essentiel de sa logique interne.
 11. **NE RIEN FAIRE SANS QUE CE N'AIT ETE EXPLICITEMENT DEMANDÉ**. Toute tâche doit être validée par une demande explicite avant d'être exécutée, même si elle semble évidente ou nécessaire.
+12? **Utiliser au maximum la doc GODOT et les ressources officielles** notamment : [Documentation Godot](https://docs.godotengine.org/fr/stable/), [API Godot](https://docs.godotengine.org/fr/stable/classes/index.html), [Tutoriels Godot](https://docs.godotengine.org/fr/stable/getting_started/step_by_step/index.html), [Création d'application](https://docs.godotengine.org/en/stable/tutorials/ui/creating_applications.html#desktop-integration).
 
 ## Couverture des tests
 

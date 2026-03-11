@@ -46,8 +46,6 @@ var _figure_counter: int = 0
 @onready var _tolz_menu: PopupMenu = %"Tolz"
 @onready var _element_menu: PopupMenu = %"Élément"
 var _menu_manager: MenuManager
-var _save_dialog: FileDialog
-var _load_dialog: FileDialog
 
 func _ready() -> void:
 	# ── Workspace Signals ──
@@ -65,8 +63,6 @@ func _ready() -> void:
 	_menu_manager.scenography_settings_requested.connect(settings_window.open_project)
 	_menu_manager.add_figure_requested.connect(_add_figure)
 
-	# ── Dialogues fichier ──
-	_setup_file_dialogs()
 	_style_toolbar()
 
 	# ── Volet Flottes ──
@@ -142,23 +138,31 @@ func _spawn_figure_from_data(figure_data: FigureData, p_is_fleet_figure: bool = 
 
 # ── Files I/O ──
 
-func _setup_file_dialogs() -> void:
-	_save_dialog = FileDialog.new()
-	_save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
-	_save_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	_save_dialog.filters = PackedStringArray(["*.json ; Schéma JSON"])
-	_save_dialog.file_selected.connect(_on_save_file_selected)
-	add_child(_save_dialog)
+func _on_save_requested() -> void:
+	DisplayServer.file_dialog_show(
+		"Sauvegarder le schéma",
+		"",
+		"schema.json",
+		false,
+		DisplayServer.FILE_DIALOG_MODE_SAVE_FILE,
+		PackedStringArray(["*.json ; Schéma JSON"]),
+		func(status: bool, selected_paths: PackedStringArray, _filter_index: int):
+			if status and selected_paths.size() > 0:
+				_on_save_file_selected(selected_paths[0])
+	)
 
-	_load_dialog = FileDialog.new()
-	_load_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-	_load_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	_load_dialog.filters = PackedStringArray(["*.json ; Schéma JSON"])
-	_load_dialog.file_selected.connect(_on_load_file_selected)
-	add_child(_load_dialog)
-
-func _on_save_requested() -> void: _save_dialog.popup_centered()
-func _on_load_requested() -> void: _load_dialog.popup_centered()
+func _on_load_requested() -> void:
+	DisplayServer.file_dialog_show(
+		"Ouvrir un schéma",
+		"",
+		"",
+		false,
+		DisplayServer.FILE_DIALOG_MODE_OPEN_FILE,
+		PackedStringArray(["*.json ; Schéma JSON"]),
+		func(status: bool, selected_paths: PackedStringArray, _filter_index: int):
+			if status and selected_paths.size() > 0:
+				_on_load_file_selected(selected_paths[0])
+	)
 
 func _on_save_file_selected(path: String) -> void:
 	var data := GraphSerializer.serialize_graph(

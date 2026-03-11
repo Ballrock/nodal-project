@@ -12,7 +12,8 @@ content_margin_bottom = 16.0
 [node name="ConfigWindow" type="Window"]
 title = "Configuration"
 initial_position = 2
-size = Vector2i(400, 500)
+size = Vector2i(800, 720)
+min_size = Vector2i(800, 720)
 visible = false
 wrap_controls = true
 transient = true

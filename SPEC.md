@@ -493,13 +493,13 @@ res://
 
 ### 16.3. Sauvegarde
 
-- Menu **Fichier → Sauvegarder** (`Ctrl+S`) → ouvre un `FileDialog` en mode sauvegarde.
+- Menu **Fichier → Sauvegarder** (`Ctrl+S`) → ouvre un dialogue natif (`DisplayServer.file_dialog_show`) en mode sauvegarde.
 - L'utilisateur choisit le chemin et le nom du fichier (filtre `*.json`).
 - Le `GraphSerializer` collecte l'état complet (figures, liens, flottes, zoom, timeline) et écrit le JSON.
 
 ### 16.4. Chargement
 
-- Menu **Fichier → Charger** (`Ctrl+O`) → ouvre un `FileDialog` en mode ouverture.
+- Menu **Fichier → Charger** (`Ctrl+O`) → ouvre un dialogue natif (`DisplayServer.file_dialog_show`) en mode ouverture.
 - Le fichier JSON est lu et parsé par `GraphSerializer`.
 - L'état actuel est entièrement **effacé** (`_clear_graph`) puis **reconstruit** :
   1. Restauration du zoom canvas et de l'échelle timeline.
