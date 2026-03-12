@@ -182,10 +182,8 @@ func test_serialize_graph_full() -> void:
 	var mock_links_layer = double(LinksLayer).new()
 	stub(mock_links_layer, "get_all_link_data").to_return([link_data])
 	
-	# 3. Flottes (Mock FleetPanel)
+	# 3. Flottes
 	var fleet_data := _make_fleet_data("MyFleet")
-	var mock_fleet_panel = double(FleetPanel).new()
-	stub(mock_fleet_panel, "get_fleets").to_return([fleet_data])
 	
 	# 4. Mapping fleet_to_slot
 	var fleet_to_slot := {
@@ -196,7 +194,6 @@ func test_serialize_graph_full() -> void:
 	var serialized := GraphSerializer.serialize_graph(
 		figures_by_id,
 		mock_links_layer,
-		mock_fleet_panel,
 		fleet_to_slot,
 		0.75, # canvas_zoom
 		150.0 # timeline_scale
@@ -217,9 +214,6 @@ func test_serialize_graph_full() -> void:
 	
 	assert_eq(serialized["links"].size(), 1)
 	assert_eq(serialized["links"][0]["source_figure_id"], str(fig_a_data.id))
-	
-	assert_eq(serialized["fleets"].size(), 1)
-	assert_eq(serialized["fleets"][0]["name"], "MyFleet")
 	
 	assert_eq(serialized["fleet_to_slot"][str(fleet_data.id)], str(fig_b_data.output_slots[0].id))
 	

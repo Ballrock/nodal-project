@@ -116,5 +116,4 @@ func test_load_graph_full() -> void:
 	assert_eq(_main.get_node("%Workspace").get_canvas_zoom(), 0.5)
 	assert_eq(_main.get_node("%TimelinePanel").timeline_scale, 200.0)
 	assert_eq(_get_figures_by_id().size(), 2)
-	assert_eq(_main.get_node("%FleetPanel").get_fleets().size(), 1)
 	assert_eq(_get_links_layer().get_all_link_data().size(), 1)

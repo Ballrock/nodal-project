@@ -1,6 +1,6 @@
 extends GutTest
 
-## Tests d'intégration : ajout/suppression de flottes, mise à jour de la FleetFigure,
+## Tests d'intégration : ajout/suppression de flottes via FleetFigure,
 ## nettoyage des liens associés.
 
 const MainScene := preload("res://ui/main/main.tscn")
@@ -24,22 +24,19 @@ func _workspace() -> Node:
 func _links_layer() -> LinksLayer:
 	return _workspace().get_node("%LinksLayer") as LinksLayer
 
-func _fleet_panel() -> FleetPanel:
-	return _main.get_node("%FleetPanel") as FleetPanel
-
 func _figures_by_id() -> Dictionary:
 	return _main.get("_figures_by_id") as Dictionary
 
 func _create_fleet(p_name: String, p_type: int = FleetData.DroneType.DRONE_RIFF, p_count: int = 1) -> FleetData:
 	var fleet := FleetData.create(p_name, p_type, p_count)
-	_main.call("_on_fleet_created", fleet)
+	_main.call("_fleet_figure_add_slot", fleet)
 	return fleet
 
 func _delete_fleet(fleet: FleetData) -> void:
-	_main.call("_on_fleet_deleted", fleet)
+	_main.call("_fleet_figure_remove_slot", fleet)
 
 func _update_fleet(fleet: FleetData) -> void:
-	_main.call("_on_fleet_updated", fleet)
+	_main.call("_fleet_figure_rename_slot", fleet)
 
 func _link_count() -> int:
 	return _links_layer().get_all_link_data().size()

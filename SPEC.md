@@ -16,9 +16,8 @@ POC d'une interface nodale drag & drop en Godot 4.6 / GDScript, inspirée des bl
 | **Timeline** | Axe horizontal représentant le temps continu (en secondes), support de positionnement des boîtes |
 | **Canvas** | Zone de travail 2D pannable et zoomable contenant la timeline et les boîtes |
 | **Panneau de configuration** | Interface secondaire (panneau latéral) pour paramétrer une boîte sélectionnée |
-| **Flotte** (Fleet) | Groupe de drones d'un même type (RIFF ou EMO) avec un nombre défini, géré via le volet latéral gauche |
-| **Volet Flottes** (FleetPanel) | Panneau latéral gauche collapsible listant les flottes définies |
-| **Dialogue de Flotte** (FleetDialog) | Dialogue modal centré pour créer ou modifier une flotte |
+| **Flotte** (Fleet) | Groupe de drones d'un même type (RIFF ou EMO) avec un nombre défini, géré via la FleetFigure |
+| **Panneau Composition** (FleetPanel) | Panneau latéral gauche collapsible affichant le résumé de la composition |
 | **Figure Flotte** (FleetFigure) | Boîte spéciale non supprimable, sans entrées, avec un slot de sortie par flotte définie |
 
 ---
@@ -42,11 +41,10 @@ Main (Control, plein écran)
 │           └── TrackArea (Control — zone des segments, rangées dynamiques)
 │               ├── TimelineSegment_0
 │               └── TimelineSegment_N …
-├── FleetPanel (PanelContainer — volet latéral gauche, overlay ~250px, collapsible)
-│   ├── FleetPanelHeader (HBoxContainer — titre "Flottes" + bouton +)
-│   └── FleetList (VBoxContainer — liste scrollable des flottes)
-├── FleetDialog (Window — dialogue modal centré, géré par l'OS)
-│   └── FleetForm (VBoxContainer — nom, type de drone, nombre)
+├── FleetPanel (PanelContainer — volet latéral gauche, ~250px, collapsible, résumé Composition)
+│   ├── FleetPanelHeader (HBoxContainer — titre "Composition" + bouton "Éditer")
+│   └── CompositionSummary (VBoxContainer — résumé total, barre, profils)
+├── CompositionWindow (Window — fenêtre native d'édition de la composition)
 ├── ConfigWindow (Window — fenêtre flottante de configuration, multi-instance)
 │   ├── SlotListEditor (liste d'emplacements modifiable)
 │   └── FigurePropertiesEditor (propriétés générales de la figure)
@@ -343,8 +341,9 @@ res://
 │   ├── figure.tscn                # Scène d'une boîte (instanciée)
 │   ├── slot.tscn               # Scène d'un slot (instanciée dans box)
 │   ├── config_panel.tscn       # Panneau de configuration
-│   ├── fleet_panel.tscn        # Volet latéral gauche des flottes
-│   ├── fleet_dialog.tscn       # Dialogue modal de création/édition de flotte
+│   ├── fleet_panel.tscn        # Panneau de résumé Composition
+│   ├── composition_window.tscn # Fenêtre native d'édition de la composition
+│   ├── profile_dialog.tscn     # Dialogue de création/édition de profil
 │   └── zoom_detail_overlay.tscn
 ├── scripts/
 │   ├── main.gd                 # Orchestration, input routing
@@ -355,8 +354,9 @@ res://
 │   ├── slot.gd                 # Logique d'un slot (détection hover/snap)
 │   ├── links_layer.gd          # Rendu et gestion des câbles (_draw)
 │   ├── config_panel.gd         # Logique du panneau de configuration
-│   ├── fleet_panel.gd          # Logique du volet Flottes
-│   ├── fleet_dialog.gd         # Logique du dialogue de flotte
+│   ├── fleet_panel.gd          # Logique du panneau Composition
+│   ├── composition_window.gd   # Logique de la fenêtre Composition
+│   ├── profile_dialog.gd       # Logique du dialogue de profil
 │   ├── zoom_detail_overlay.gd  # Vue détaillée
 │   ├── snap_helper.gd          # Utilitaire magnétisme (timeline + slots)
 │   ├── timeline_panel.gd       # Panneau NLE en bas (pistes + segments)
@@ -394,7 +394,7 @@ res://
 | `Ctrl + A` | Tout sélectionner |
 | `Shift` (maintenu) | Désactiver le magnétisme timeline pendant un drag |
 | `Alt` (maintenu) | Désactiver le magnétisme des slots pendant un drag câble |
-| `Escape` | Ferme aussi le FleetDialog si ouvert |
+| `Escape` | Ferme aussi la CompositionWindow / ProfileDialog si ouvert |
 
 ---
 
@@ -411,24 +411,27 @@ res://
 
 ---
 
-## 14. Volet Flottes (FleetPanel)
+## 14. Panneau Composition (FleetPanel)
 
 ### 14.1. Position et apparence
 
 - Panneau latéral **gauche**, largeur ~250 px, intégré dans un **HBoxContainer** (`CanvasHBox`) qui pousse la zone nodale horizontalement.
-- Le FleetPanel **ne couvre pas** la timeline (la timeline occupe toute la largeur en bas).
+- Le panneau **ne couvre pas** la timeline (la timeline occupe toute la largeur en bas).
 - Style sombre cohérent avec le thème existant (fond semi-transparent `(0.12, 0.12, 0.15, 0.95)`).
 - **Collapsible** via un bouton flèche (`◀`/`▶`) dans le header du volet.
 - État initial : volet **déplié** au lancement.
 
 ### 14.2. Structure
 
-- **Header** : titre "Flottes" à gauche, bouton **"+"** à droite.
-  - Clic sur "+" → ouvre le FleetDialog (§15) en mode création.
+- **Header** : titre "Composition" à gauche, bouton **"Éditer"** à droite.
+  - Clic sur "Éditer" → ouvre la CompositionWindow (§15bis.2) en mode édition.
   - Bouton flèche pour collapse/expand.
-- **Corps** : liste verticale scrollable (`ScrollContainer` > `VBoxContainer`) des flottes.
-  - Chaque flotte est affichée par son **nom** (un `Button` ou `Label` cliquable).
-  - Clic sur un nom → ouvre le FleetDialog (§15) en mode édition de cette flotte.
+- **Corps** : résumé de la composition :
+  - Label **"Total : N drones"** (tiré de `composition/total_drones`)
+  - Barre visuelle RIFF / EMO (proportionnelle)
+  - Label **"Alloués : X / N"** + couleur (vert si X == N, orange si X < N, rouge si X > N)
+  - Liste des profils (chacun sur une ligne)
+  - Label d'alerte si drones non alloués
 
 ### 14.3. Figure Flotte (FleetFigure)
 
@@ -442,33 +445,89 @@ res://
 
 ---
 
-## 15. Dialogue de Flotte (FleetDialog)
+## 15. Dialogue de Flotte (FleetDialog) — OBSOLÈTE
 
-### 15.1. Apparence
+> **Note :** Le FleetDialog n'est plus utilisé depuis la migration vers le système de Composition.
+> Les flottes sont désormais gérées directement via la FleetFigure et le système de profils
+> dans la CompositionWindow. Le FleetDialog reste présent dans le code mais n'est plus
+> instancié ni connecté.
 
-- Dialogue **modal** centré à l'écran.
-- Fond assombri (`ColorRect` plein écran avec couleur `(0, 0, 0, 0.5)`).
-- Panneau central (~400 px de large) avec fond sombre et bordure.
+---
 
-### 15.2. Champs du formulaire
+## 15bis. Composition (Panneau & Fenêtre d'édition)
 
-| Champ | Type de contrôle | Contraintes |
+### 15bis.1. Panneau Composition (CompositionPanel — volet latéral gauche)
+
+Le volet latéral gauche collapsible est renommé **"Composition"**. Il affiche un **résumé** de la composition de la scénographie (total drones, répartition RIFF/EMO, liste des profils avec quantités, alerte sur drones non alloués).
+
+**Structure du header** :
+- Bouton collapse (`◀`/`▶`)
+- Titre **"Composition"**
+- Bouton **"Éditer"** → ouvre la `CompositionWindow` (§15bis.2)
+
+**Corps (résumé)** :
+- Label **"Total : N drones"** (tiré de `composition/total_drones`)
+- Barre visuelle RIFF / EMO (proportionnelle)
+- Label **"Alloués : X / N"** + couleur (vert si X == N, orange si X < N, rouge si X > N)
+- Liste des profils (chacun sur une ligne) :
+  - Pastille colorée + nom + "×quantité"
+  - Sous-titre : "TYPE · Nacelle · effets…"
+- Label d'alerte si drones non alloués
+
+Le panneau sert désormais uniquement de résumé Composition (pas de gestion directe des flottes dans le panneau).
+
+### 15bis.2. Fenêtre Composition (CompositionWindow)
+
+Fenêtre native (`Window`) ouverte par le bouton "Éditer" du panneau Composition.
+
+**Section haute** :
+- `SpinBox` **"Total drones"** (min 0, max 99999)
+- Barre de résumé RIFF/EMO + drones alloués/disponibles (lecture seule)
+
+**Section profils** :
+- Liste scrollable des profils existants. Chaque profil est un bloc :
+  - Nom, quantité, type drone, nacelle, effets (lecture seule dans la liste)
+  - Boutons **Éditer** (✏️) et **Supprimer** (🗑)
+- Bouton **"+ Profil"** en bas → ouvre le `ProfileDialog` (§15bis.3)
+
+**Boutons** :
+- **Appliquer** : enregistre le total et les profils dans le `SettingsManager` (scope PROJECT, catégorie "Composition") et ferme la fenêtre.
+- **Annuler** : ferme sans sauvegarder.
+
+### 15bis.3. Dialogue Profil (ProfileDialog)
+
+Fenêtre modale pour créer ou modifier un profil de drones.
+
+**Champs** :
+| Champ | Contrôle | Contraintes |
 |---|---|---|
-| **Nom de la flotte** | `LineEdit` | Obligatoire, non vide |
-| **Type de drone** | `OptionButton` avec options `RIFF` / `EMO` | Sélection obligatoire |
-| **Nombre de drones** | `SpinBox` | Min 1, pas de max |
+| **Nom** | `LineEdit` | Obligatoire, non vide |
+| **Quantité** | `SpinBox` | Min 1, max 99999 |
+| **Type de drone** | `OptionButton` (RIFF / EMO) | Sélection obligatoire |
+| **Nacelle** | `OptionButton` | Filtré par type de drone (seules les nacelles compatibles apparaissent) |
+| **Effets** | Liste de `CheckBox` | Filtrés par nacelle (incompatibles grisés avec tooltip). Chaque effet coché peut avoir une variante (`OptionButton`) |
 
-### 15.3. Boutons
+**Cascades** :
+1. Changement de **type drone** → refiltre les nacelles compatibles (réinitialise la sélection nacelle si l'actuelle est incompatible)
+2. Changement de **nacelle** → refiltre les effets compatibles (décoche les effets devenus incompatibles)
 
-- **Valider** : crée (mode création) ou met à jour (mode édition) la flotte.
-  - En mode création : la flotte est ajoutée à la liste du volet **et** un slot de sortie correspondant est ajouté à la FleetFigure.
-  - En mode édition : les données sont mises à jour, le label du slot de sortie correspondant dans la FleetFigure est mis à jour.
-- **Annuler** : ferme le dialogue sans sauvegarder.
-- **Supprimer** (mode édition uniquement) : supprime la flotte de la liste, supprime le slot de sortie correspondant de la FleetFigure, et nettoie tous les câbles associés.
+**Boutons** : Valider / Annuler / Supprimer (en édition uniquement)
 
-### 15.4. Fermeture
+### 15bis.4. Modèle de données
 
-- Bouton Annuler, touche `Escape`, ou clic sur le fond assombri.
+| Classe | Fichier | Scope | Champs |
+|---|---|---|---|
+| `NacelleDefinition` | `core/data/nacelle_definition.gd` | Global | `id: StringName`, `name: String`, `compatible_drone_types: Array[int]` |
+| `EffectDefinition` | `core/data/effect_definition.gd` | Global | `id: StringName`, `name: String`, `category: String` (PYRO/SMOKE/STROBE/LASER), `compatible_nacelle_ids: Array[StringName]`, `variants: Array[String]` |
+| `DroneProfile` | `core/data/drone_profile.gd` | Projet | `id: StringName`, `name: String`, `drone_type: int`, `nacelle_id: StringName`, `effects: Array[Dictionary]` ({effect_id, variant}), `quantity: int` |
+
+**Données de référence (paramètres globaux)** :
+- `composition/nacelles` : `Array[Dictionary]` — catalogue des nacelles (sérialisé en JSON)
+- `composition/effects` : `Array[Dictionary]` — catalogue des effets (sérialisé en JSON)
+
+**Données de projet** :
+- `composition/total_drones` : `int` — nombre total de drones déclaré
+- `composition/profiles` : `Array[Dictionary]` — profils de drones (sérialisé en JSON)
 
 ---
 
@@ -639,7 +698,7 @@ L'interface de configuration s'adapte selon le point d'entrée :
 - Câbles rendus via `_draw()` sur un `Control` dédié (`LinksLayer`) plutôt que des `Line2D` individuels — meilleure perf et contrôle du rendu.
 - Modèle de données basé sur des `Resource` Godot. Sauvegarde/chargement via **JSON** (`GraphSerializer`) pour portabilité et lisibilité.
 - **FleetData séparée de GraphData** : ressource indépendante stockée dans son propre fichier. Liée au graphe via les slots de sortie de la FleetFigure (les câbles dans `GraphData.links` pointent vers ces slots).
-- **Volet Flottes intégré (push)** : le FleetPanel est placé dans un `HBoxContainer` avec le `CanvasArea`, poussant la zone nodale horizontalement. Il ne couvre pas la timeline.
+- **Volet Composition intégré (push)** : le FleetPanel est placé dans un `HBoxContainer` avec le `CanvasArea`, poussant la zone nodale horizontalement. Il ne couvre pas la timeline.
 - **Dialogue modal** : bloque l'interaction avec le canvas pendant l'édition d'une flotte.
 - **Contrainte #entrées = #sorties** pour les boîtes classiques : ajouter une entrée ajoute automatiquement une sortie, idem pour la suppression. La FleetFigure en est exemptée (0 entrées, N sorties).
 - **Gestion inline des slots** : bouton "+" directement sur la boîte pour ajouter, clic droit → menu contextuel pour supprimer un lien ou un emplacement.

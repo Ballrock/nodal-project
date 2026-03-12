@@ -13,17 +13,6 @@ border_color = Color(0.3, 0.3, 0.35, 1)
 corner_radius_top_right = 0
 corner_radius_bottom_right = 0
 
-[sub_resource type="StyleBoxFlat" id="btn_add_style"]
-content_margin_left = 8.0
-content_margin_top = 4.0
-content_margin_right = 8.0
-content_margin_bottom = 4.0
-bg_color = Color(0.29, 0.56, 0.85, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
-
 [sub_resource type="StyleBoxFlat" id="btn_collapse_style"]
 content_margin_left = 4.0
 content_margin_top = 4.0
@@ -34,6 +23,31 @@ corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="btn_edit_style"]
+content_margin_left = 8.0
+content_margin_top = 4.0
+content_margin_right = 8.0
+content_margin_bottom = 4.0
+bg_color = Color(0.33, 0.75, 0.42, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="bar_bg_style"]
+bg_color = Color(0.55, 0.35, 0.35, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="bar_fill_style"]
+bg_color = Color(0.29, 0.56, 0.85, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
 
 [node name="FleetPanel" type="PanelContainer"]
 custom_minimum_size = Vector2(250, 0)
@@ -60,25 +74,42 @@ text = "◀"
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Flottes"
+text = "Composition"
 
-[node name="AddBtn" type="Button" parent="FleetContent/FleetPanelHeader"]
+[node name="EditBtn" type="Button" parent="FleetContent/FleetPanelHeader"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_styles/normal = SubResource("btn_add_style")
-text = "+"
+theme_override_styles/normal = SubResource("btn_edit_style")
+text = "Éditer"
 
-[node name="Sep" type="HSeparator" parent="FleetContent"]
-layout_mode = 2
-theme_override_colors/separator_color = Color(0.3, 0.3, 0.35, 1)
-
-[node name="FleetScroll" type="ScrollContainer" parent="FleetContent"]
+[node name="CompositionSummary" type="VBoxContainer" parent="FleetContent"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 3
-
-[node name="FleetList" type="VBoxContainer" parent="FleetContent/FleetScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
 theme_override_constants/separation = 4
+
+[node name="TotalLabel" type="Label" parent="FleetContent/CompositionSummary"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Total : 0 drones"
+
+[node name="RiffEmoBar" type="ProgressBar" parent="FleetContent/CompositionSummary"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 12)
+theme_override_styles/background = SubResource("bar_bg_style")
+theme_override_styles/fill = SubResource("bar_fill_style")
+max_value = 100.0
+value = 0.0
+show_percentage = false
+
+[node name="AllocLabel" type="Label" parent="FleetContent/CompositionSummary"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Alloués : 0 / 0"
+
+[node name="ProfileList" type="VBoxContainer" parent="FleetContent/CompositionSummary"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+

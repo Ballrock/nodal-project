@@ -67,13 +67,39 @@ func _declare_defaults() -> void:
 	declare_setting("nacelles/version", SettingType.STRING, "1.0.0", SettingScope.GLOBAL, "Nacelles", "Version du fichier nacelles", "Dernière version récupérée")
 	declare_setting("nacelles/list", SettingType.ARRAY, ["Nacelle A", "Nacelle B", "Nacelle C"], SettingScope.GLOBAL, "Nacelles", "Liste des nacelles", "Liste des nacelles disponibles")
 	
+	# Catalogue global : nacelles (JSON)
+	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")
+	# Catalogue global : effets (JSON)
+	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "Composition", "Catalogue effets", "Définitions des effets disponibles")
+	
 	# --- Paramètres PROJET (Scénographie) ---
 	declare_setting("scenography/name", SettingType.STRING, "Ma Scénographie", SettingScope.PROJECT, "Général", "Nom de la scénographie", "Le nom identifiant ce projet")
 	declare_setting("scenography/drone_count", SettingType.NUMBER, 10.0, SettingScope.PROJECT, "Drones", "Nombre de drones", "Nombre total de drones pour cette scénographie")
 	
+	# Composition projet
+	declare_setting("composition/total_drones", SettingType.NUMBER, 0.0, SettingScope.PROJECT, "Composition", "Total drones", "Nombre total de drones déclaré")
+	declare_setting("composition/profiles", SettingType.JSON, [], SettingScope.PROJECT, "Composition", "Profils de drones", "Liste des profils de drones (JSON)")
+	
 	# Paramètres techniques (Global)
 	declare_setting("canvas/grid_visible", SettingType.BOOLEAN, true, SettingScope.GLOBAL, "Canvas", "Grille visible")
 	declare_setting("canvas/snap_threshold", SettingType.NUMBER, 20.0, SettingScope.GLOBAL, "Canvas", "Seuil de magnétisme")
+
+
+static func _default_nacelles() -> Array:
+	return [
+		{"id": "nacelle_standard", "name": "Standard", "compatible_drone_types": [0, 1]},
+		{"id": "nacelle_pyrolight", "name": "PyroLight", "compatible_drone_types": [0]},
+		{"id": "nacelle_lasermount", "name": "LaserMount", "compatible_drone_types": [1]},
+	]
+
+
+static func _default_effects() -> Array:
+	return [
+		{"id": "effect_pyro", "name": "Feu pyrotechnique", "category": 0, "compatible_nacelle_ids": ["nacelle_pyrolight", "nacelle_standard"], "variants": ["Bengale verte", "Bengale rouge", "Bengale blanche", "Flamme dorée"]},
+		{"id": "effect_smoke", "name": "Fumée", "category": 1, "compatible_nacelle_ids": ["nacelle_pyrolight", "nacelle_standard"], "variants": ["Blanche", "Colorée"]},
+		{"id": "effect_strobe", "name": "Stroboscopique", "category": 2, "compatible_nacelle_ids": ["nacelle_standard", "nacelle_lasermount"], "variants": []},
+		{"id": "effect_laser", "name": "Laser", "category": 3, "compatible_nacelle_ids": ["nacelle_lasermount"], "variants": ["RGB", "Vert", "Rouge"]},
+	]
 
 func declare_setting(key: String, type: SettingType, default_value: Variant, scope: SettingScope = SettingScope.GLOBAL, category: String = "Général", label: String = "", description: String = "") -> void:
 	if not _settings.has(key):

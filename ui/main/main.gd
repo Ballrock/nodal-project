@@ -1,6 +1,6 @@
 extends Control
 
-## Script principal : orchestre le workspace, les flottes, la timeline
+## Script principal : orchestre le workspace, la composition, la timeline
 ## et la sérialisation.
 
 const FigureData := preload("res://core/data/figure_data.gd")
@@ -15,8 +15,8 @@ const FLEET_FIGURE_COLOR := Color(0.33, 0.75, 0.42)
 
 @onready var workspace: Node = %Workspace
 @onready var fleet_panel: Node = %FleetPanel
-@onready var fleet_dialog: Node = %FleetDialog
 @onready var settings_window: Node = %SettingsWindow
+@onready var composition_window: Node = %CompositionWindow
 @onready var timeline_panel: Node = %TimelinePanel
 @onready var _toolbar: MenuBar = %Toolbar
 
@@ -48,6 +48,10 @@ var _figure_counter: int = 0
 var _menu_manager: MenuManager
 
 func _ready() -> void:
+	# ── Fenêtre principale ──
+	_apply_hidpi_scale()
+	_apply_min_window_size()
+
 	# ── Workspace Signals ──
 	workspace.figure_selected.connect(_on_figure_selected)
 	workspace.link_created.connect(_on_link_created)
@@ -65,14 +69,11 @@ func _ready() -> void:
 
 	_style_toolbar()
 
-	# ── Volet Flottes ──
-	fleet_panel.add_fleet_requested.connect(_on_add_fleet_requested)
-	fleet_panel.edit_fleet_requested.connect(_on_edit_fleet_requested)
+	# ── Volet Composition ──
+	fleet_panel.composition_edit_requested.connect(_on_composition_edit_requested)
 
-	# ── Dialog Flotte ──
-	fleet_dialog.fleet_created.connect(_on_fleet_created)
-	fleet_dialog.fleet_updated.connect(_on_fleet_updated)
-	fleet_dialog.fleet_deleted.connect(_on_fleet_deleted)
+	# ── Composition Window ──
+	composition_window.composition_changed.connect(_on_composition_changed)
 
 	# ── Timeline Panel ──
 	timeline_panel.segment_selected.connect(_on_timeline_segment_selected)
@@ -168,7 +169,6 @@ func _on_save_file_selected(path: String) -> void:
 	var data := GraphSerializer.serialize_graph(
 		_figures_by_id,
 		workspace.links_layer,
-		fleet_panel,
 		_fleet_to_slot,
 		workspace.get_canvas_zoom(),
 		timeline_panel.timeline_scale,
@@ -184,7 +184,6 @@ func _clear_graph() -> void:
 	_figures_by_id.clear()
 	_fleet_figure = null
 	_fleet_to_slot.clear()
-	fleet_panel.clear_fleets()
 	_figure_counter = 0
 	_sync_timeline()
 
@@ -216,7 +215,6 @@ func _load_graph(data: Dictionary) -> void:
 	var loaded_fleets: Array[FleetData] = []
 	for fleet_dict: Dictionary in fleets_data:
 		loaded_fleets.append(GraphSerializer.dict_to_fleet_data(fleet_dict))
-	fleet_panel.set_fleets(loaded_fleets)
 
 	var saved_mapping: Dictionary = data.get("fleet_to_slot", {})
 	for fleet_id_str: String in saved_mapping:
@@ -368,20 +366,12 @@ func _handle_slot_deletion(slot: Node, figure: Node) -> void:
 	figure._build_slots()
 	workspace.links_layer.refresh()
 
-# ── Fleet Handlers ──
-func _on_add_fleet_requested() -> void: fleet_dialog.open_create()
-func _on_edit_fleet_requested(fleet: FleetData) -> void: fleet_dialog.open_edit(fleet)
-func _on_fleet_created(fleet: FleetData) -> void:
-	fleet_panel.add_fleet(fleet)
-	_fleet_figure_add_slot(fleet)
+# ── Composition Handlers ──
+func _on_composition_edit_requested() -> void:
+	composition_window.open()
 
-func _on_fleet_updated(fleet: FleetData) -> void:
-	fleet_panel.update_fleet(fleet)
-	_fleet_figure_rename_slot(fleet)
-
-func _on_fleet_deleted(fleet: FleetData) -> void:
-	fleet_panel.remove_fleet(fleet)
-	_fleet_figure_remove_slot(fleet)
+func _on_composition_changed() -> void:
+	fleet_panel.refresh_composition_summary()
 
 func _fleet_figure_add_slot(fleet: FleetData) -> void:
 	if not _fleet_figure or _fleet_to_slot.has(fleet.id): return
@@ -425,3 +415,13 @@ func _on_timeline_segment_selected(figure_data) -> void:
 
 func _on_timeline_segment_moved(_figure_data, _s, _e): pass
 func _on_timeline_segment_resized(_figure_data, _s, _e): pass
+
+# ── Fenêtre principale ──────────────────────────────────
+
+func _apply_hidpi_scale() -> void:
+	var scale_factor := DisplayServer.screen_get_scale()
+	get_window().content_scale_factor = scale_factor
+
+func _apply_min_window_size() -> void:
+	var scale_factor := DisplayServer.screen_get_scale()
+	get_window().min_size = Vector2i(int(1024 * scale_factor), int(600 * scale_factor))

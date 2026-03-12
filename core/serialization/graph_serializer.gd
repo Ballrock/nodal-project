@@ -13,7 +13,6 @@ const SAVE_VERSION := 1
 static func serialize_graph(
 	figures_by_id: Dictionary,
 	links_layer: LinksLayer,
-	fleet_panel: FleetPanel,
 	fleet_to_slot: Dictionary,
 	canvas_zoom: float,
 	timeline_scale: float,
@@ -37,12 +36,6 @@ static func serialize_graph(
 	for ld: LinkData in links_layer.get_all_link_data():
 		links_array.append(_link_data_to_dict(ld))
 	data["links"] = links_array
-
-	# Flottes
-	var fleets_array: Array = []
-	for fleet: FleetData in fleet_panel.get_fleets():
-		fleets_array.append(_fleet_data_to_dict(fleet))
-	data["fleets"] = fleets_array
 
 	# Mapping fleet.id → slot.id
 	var mapping := {}
