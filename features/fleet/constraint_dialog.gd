@@ -254,7 +254,7 @@ func _update_implications() -> void:
 			var nacelle_label := Label.new()
 			var resolved: bool = implications.get("nacelle_resolved", false)
 			if resolved:
-				nacelle_label.text = "↳ Nacelle : %s  ⚡" % str(nacelle_names[0])
+				nacelle_label.text = "↳ Nacelle : %s" % str(nacelle_names[0])
 				nacelle_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 			else:
 				nacelle_label.text = "↳ Nacelle : %s  ⚠ %d options" % [" / ".join(nacelle_names), nacelle_names.size()]
@@ -269,7 +269,7 @@ func _update_implications() -> void:
 			var type_label := Label.new()
 			var resolved: bool = implications.get("type_resolved", false)
 			if resolved:
-				type_label.text = "↳ Type drone : %s  ⚡" % str(type_labels[0])
+				type_label.text = "↳ Type drone : %s" % str(type_labels[0])
 				type_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 			else:
 				type_label.text = "↳ Type drone : %s  ⚠ %d options" % [" / ".join(type_labels), type_labels.size()]

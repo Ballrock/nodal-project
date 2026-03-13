@@ -8,6 +8,7 @@ signal composition_changed
 
 const ConstraintDialogScene := preload("res://features/fleet/constraint_dialog.tscn")
 
+@onready var _icon_font: Font = load("res://assets/fonts/material_symbols_rounded.ttf")
 @onready var _total_spin: SpinBox = %TotalSpin
 @onready var _summary_bar: CompositionBar = %SummaryBar
 @onready var _summary_label: Label = %SummaryLabel
@@ -172,10 +173,10 @@ func _create_constraint_row(constraint: DroneConstraint, index: int, nacelles_ca
 		if nacelle_names.size() > 0:
 			var impl_label := Label.new()
 			if implications.get("nacelle_resolved", false):
-				impl_label.text = "  ↳ Nacelle : %s  ⚡" % str(nacelle_names[0])
+				impl_label.text = "  ↳ Nacelle : %s" % str(nacelle_names[0])
 				impl_label.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 			else:
-				impl_label.text = "  ↳ Nacelle : %s  ⚠" % " / ".join(nacelle_names)
+				impl_label.text = "  ↳ Nacelle : %s" % " / ".join(nacelle_names)
 				impl_label.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
 			impl_label.add_theme_font_size_override("font_size", 11)
 			info_vbox.add_child(impl_label)
@@ -186,10 +187,10 @@ func _create_constraint_row(constraint: DroneConstraint, index: int, nacelles_ca
 		if type_labels.size() > 0:
 			var type_impl := Label.new()
 			if implications.get("type_resolved", false):
-				type_impl.text = "  ↳ Type drone : %s  ⚡" % str(type_labels[0])
+				type_impl.text = "  ↳ Type drone : %s" % str(type_labels[0])
 				type_impl.add_theme_color_override("font_color", Color(0.5, 0.8, 0.5))
 			else:
-				type_impl.text = "  ↳ Type drone : %s  ⚠" % " / ".join(type_labels)
+				type_impl.text = "  ↳ Type drone : %s" % " / ".join(type_labels)
 				type_impl.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
 			type_impl.add_theme_font_size_override("font_size", 11)
 			info_vbox.add_child(type_impl)
@@ -212,15 +213,17 @@ func _create_constraint_row(constraint: DroneConstraint, index: int, nacelles_ca
 		hbox.add_child(info_btn)
 
 	var edit_btn := Button.new()
-	edit_btn.text = "✏️"
+	edit_btn.text = "edit"
 	edit_btn.flat = true
+	edit_btn.add_theme_font_override("font", _icon_font)
 	var idx := index
 	edit_btn.pressed.connect(func(): _on_edit_constraint(idx))
 	hbox.add_child(edit_btn)
 
 	var del_btn := Button.new()
-	del_btn.text = "🗑"
+	del_btn.text = "delete"
 	del_btn.flat = true
+	del_btn.add_theme_font_override("font", _icon_font)
 	del_btn.pressed.connect(func(): _on_delete_constraint(idx))
 	hbox.add_child(del_btn)
 
