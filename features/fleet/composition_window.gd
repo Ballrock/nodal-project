@@ -194,6 +194,23 @@ func _create_constraint_row(constraint: DroneConstraint, index: int, nacelles_ca
 			type_impl.add_theme_font_size_override("font_size", 11)
 			info_vbox.add_child(type_impl)
 
+	# Info button for NACELLE constraints (hover to see nacelle details)
+	if constraint.category == DroneConstraint.ConstraintCategory.NACELLE:
+		var info_btn := Button.new()
+		info_btn.text = "i"
+		info_btn.flat = true
+		info_btn.custom_minimum_size = Vector2(28, 28)
+		info_btn.add_theme_font_size_override("font_size", 14)
+		info_btn.add_theme_color_override("font_color", Color(0.5, 0.7, 0.9))
+		info_btn.tooltip_text = ""
+		info_btn.mouse_default_cursor_shape = Control.CURSOR_HELP
+
+		var nacelle_def := _find_nacelle_definition(constraint.value)
+		if nacelle_def:
+			info_btn.mouse_entered.connect(func(): _show_nacelle_popup(info_btn, nacelle_def))
+			info_btn.mouse_exited.connect(func(): _hide_nacelle_popup())
+		hbox.add_child(info_btn)
+
 	var edit_btn := Button.new()
 	edit_btn.text = "✏️"
 	edit_btn.flat = true
@@ -272,6 +289,136 @@ func _get_effects_catalog() -> Array:
 	if raw is Array:
 		effects = raw
 	return effects
+
+
+## Popup flottante pour les details nacelle
+var _nacelle_popup: PopupPanel = null
+
+
+func _find_nacelle_definition(nacelle_value: String) -> NacelleDefinition:
+	if not NacelleManager.is_loaded():
+		return null
+	for n in NacelleManager.get_nacelles():
+		if n.name == nacelle_value or str(n.id) == nacelle_value:
+			return n
+	return null
+
+
+func _show_nacelle_popup(anchor: Control, nacelle_def: NacelleDefinition) -> void:
+	_hide_nacelle_popup()
+
+	_nacelle_popup = PopupPanel.new()
+	_nacelle_popup.transparent = true
+	_nacelle_popup.popup_window = false
+	add_child(_nacelle_popup)
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.12, 0.16, 0.95)
+	style.border_color = Color(0.35, 0.45, 0.6, 0.8)
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.set_corner_radius_all(6)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	_nacelle_popup.add_theme_stylebox_override("panel", style)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 4)
+	_nacelle_popup.add_child(content)
+
+	# Titre
+	var title_label := Label.new()
+	title_label.text = nacelle_def.name
+	title_label.add_theme_font_size_override("font_size", 15)
+	title_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95))
+	content.add_child(title_label)
+
+	content.add_child(HSeparator.new())
+
+	# Infos generales
+	var info_parts: PackedStringArray = []
+	if not nacelle_def.type_drone.is_empty():
+		info_parts.append("Drone : %s" % nacelle_def.type_drone)
+	if not nacelle_def.mount_type.is_empty():
+		info_parts.append("Montage : %s" % nacelle_def.get_mount_type_label())
+	if nacelle_def.weight > 0:
+		info_parts.append("Poids : %d g" % nacelle_def.weight)
+
+	if not info_parts.is_empty():
+		var info_label := Label.new()
+		info_label.text = " | ".join(info_parts)
+		info_label.add_theme_font_size_override("font_size", 12)
+		info_label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8))
+		content.add_child(info_label)
+
+	# Channels
+	if not nacelle_def.effects.is_empty():
+		var ch_title := Label.new()
+		ch_title.text = "Channels (%d)" % nacelle_def.effects.size()
+		ch_title.add_theme_font_size_override("font_size", 13)
+		ch_title.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+		content.add_child(ch_title)
+
+		# Header
+		var header := HBoxContainer.new()
+		header.add_theme_constant_override("separation", 4)
+		content.add_child(header)
+
+		for col_text in ["Channel", "Angle H", "Angle P"]:
+			var col := Label.new()
+			col.text = col_text
+			col.custom_minimum_size.x = 75
+			col.add_theme_font_size_override("font_size", 11)
+			col.add_theme_color_override("font_color", Color(0.5, 0.55, 0.6))
+			header.add_child(col)
+
+		# Rows
+		for effect in nacelle_def.effects:
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 4)
+			content.add_child(row)
+
+			var ch_label := Label.new()
+			ch_label.text = "Ch %d" % int(effect.get("channel", 0))
+			ch_label.custom_minimum_size.x = 75
+			ch_label.add_theme_font_size_override("font_size", 12)
+			ch_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+			row.add_child(ch_label)
+
+			var ah_label := Label.new()
+			ah_label.text = "%.1f°" % float(effect.get("angleH", 0.0))
+			ah_label.custom_minimum_size.x = 75
+			ah_label.add_theme_font_size_override("font_size", 12)
+			ah_label.add_theme_color_override("font_color", Color(0.7, 0.85, 0.7))
+			row.add_child(ah_label)
+
+			var ap_label := Label.new()
+			ap_label.text = "%.1f°" % float(effect.get("angleP", 0.0))
+			ap_label.custom_minimum_size.x = 75
+			ap_label.add_theme_font_size_override("font_size", 12)
+			ap_label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+			row.add_child(ap_label)
+	else:
+		var no_ch := Label.new()
+		no_ch.text = "Aucun channel"
+		no_ch.add_theme_font_size_override("font_size", 12)
+		no_ch.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		content.add_child(no_ch)
+
+	# Position the popup near the anchor
+	var anchor_rect := anchor.get_global_rect()
+	var popup_pos := Vector2i(int(anchor_rect.position.x - 250), int(anchor_rect.end.y + 4))
+	_nacelle_popup.popup(Rect2i(popup_pos, Vector2i(0, 0)))
+
+
+func _hide_nacelle_popup() -> void:
+	if _nacelle_popup and is_instance_valid(_nacelle_popup):
+		_nacelle_popup.queue_free()
+		_nacelle_popup = null
 
 
 func _input(event: InputEvent) -> void:

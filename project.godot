@@ -22,6 +22,7 @@ config/icon="res://assets/icons/icon.svg"
 [autoload]
 
 SettingsManager="*res://core/settings/settings_manager.gd"
+NacelleManager="*res://core/nacelle/nacelle_manager.gd"
 
 [display]
 

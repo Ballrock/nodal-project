@@ -64,8 +64,9 @@ func _ready() -> void:
 func _declare_defaults() -> void:
 	# --- Paramètres GLOBAUX ---
 	declare_setting("application/language", SettingType.STRING, "fr", SettingScope.GLOBAL, "Logiciel", "Langue", "Code de langue de l'interface (ex: fr, en)")
-	declare_setting("nacelles/version", SettingType.STRING, "1.0.0", SettingScope.GLOBAL, "Nacelles", "Version du fichier nacelles", "Dernière version récupérée")
-	declare_setting("nacelles/list", SettingType.ARRAY, ["Nacelle A", "Nacelle B", "Nacelle C"], SettingScope.GLOBAL, "Nacelles", "Liste des nacelles", "Liste des nacelles disponibles")
+	declare_setting("nacelles/timestamp", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Nacelles", "Version du fichier", "Timestamp de la version du fichier nacelles")
+	declare_setting("nacelles/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Nacelles", "Dernier telechargement", "Date du dernier telechargement des nacelles")
+	declare_setting("nacelles/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Nacelles", "Nombre de nacelles", "Nombre de nacelles disponibles")
 	
 	# Catalogue global : nacelles (JSON)
 	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")

@@ -11,17 +11,23 @@ extends Window
 var _current_scope: SettingsManager.SettingScope = SettingsManager.SettingScope.GLOBAL
 # Stocke les modifications temporaires : key -> value
 var _draft_settings: Dictionary = {}
+# References pour la page nacelles (mise a jour dynamique)
+var _nacelle_status_label: Label = null
+var _nacelle_download_btn: Button = null
+var _nacelle_list_container: VBoxContainer = null
+var _nacelle_count_label: Label = null
+var _nacelle_version_label: Label = null
 
 func _ready() -> void:
 	visible = false
 	force_native = true
-	
+
 	# Adapter le contenu au DPI de l'écran (Retina, etc.)
 	content_scale_factor = DisplayServer.screen_get_scale()
-	
+
 	transient = false
 	exclusive = false
-	
+
 	close_requested.connect(close)
 	apply_button.pressed.connect(_on_apply_pressed)
 	cancel_footer_button.pressed.connect(close)
@@ -44,6 +50,7 @@ func open_project() -> void:
 func close() -> void:
 	hide()
 	_draft_settings.clear()
+	_disconnect_nacelle_signals()
 
 func _prepare_draft() -> void:
 	_draft_settings.clear()
@@ -78,9 +85,15 @@ func _on_category_selected() -> void:
 
 func _display_category(category: String) -> void:
 	category_title.text = category
+	_disconnect_nacelle_signals()
 	for child in options_container.get_children():
 		child.queue_free()
-	
+
+	# Rendu personnalise pour la categorie Nacelles
+	if category == "Nacelles" and _current_scope == SettingsManager.SettingScope.GLOBAL:
+		_display_nacelles_category()
+		return
+
 	var settings = SettingsManager.get_settings_by_category_and_scope(category, _current_scope)
 	for s in settings:
 		_add_setting_ui(s)
@@ -89,24 +102,24 @@ func _add_setting_ui(setting: SettingsManager.Setting) -> void:
 	var v_box = VBoxContainer.new()
 	v_box.add_theme_constant_override("separation", 2)
 	options_container.add_child(v_box)
-	
+
 	var h_box = HBoxContainer.new()
 	v_box.add_child(h_box)
-	
+
 	var label = Label.new()
 	label.text = setting.label
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h_box.add_child(label)
-	
+
 	var current_val = _draft_settings.get(setting.key, setting.default_value)
-	
+
 	match setting.type:
 		SettingsManager.SettingType.BOOLEAN:
 			var check = CheckBox.new()
 			check.button_pressed = current_val
 			check.toggled.connect(func(pressed: bool): _draft_settings[setting.key] = pressed)
 			h_box.add_child(check)
-			
+
 		SettingsManager.SettingType.NUMBER:
 			var spin = SpinBox.new()
 			spin.value = current_val
@@ -115,14 +128,14 @@ func _add_setting_ui(setting: SettingsManager.Setting) -> void:
 			spin.custom_minimum_size.x = 100
 			spin.value_changed.connect(func(val: float): _draft_settings[setting.key] = val)
 			h_box.add_child(spin)
-			
+
 		SettingsManager.SettingType.STRING:
 			var line_edit = LineEdit.new()
 			line_edit.text = str(current_val)
 			line_edit.custom_minimum_size.x = 250
 			line_edit.text_changed.connect(func(new_text: String): _draft_settings[setting.key] = new_text)
 			h_box.add_child(line_edit)
-			
+
 		SettingsManager.SettingType.ARRAY:
 			var list_box = VBoxContainer.new()
 			list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -131,24 +144,313 @@ func _add_setting_ui(setting: SettingsManager.Setting) -> void:
 				item_label.text = "• " + str(item)
 				list_box.add_child(item_label)
 			v_box.add_child(list_box)
-			
+
 		SettingsManager.SettingType.JSON:
 			var edit_btn = Button.new()
 			edit_btn.text = "Éditer (JSON)"
 			h_box.add_child(edit_btn)
-			
+
 		_:
 			var val_label = Label.new()
 			val_label.text = str(current_val)
 			h_box.add_child(val_label)
-	
+
 	if setting.description != "":
 		var desc_label = Label.new()
 		desc_label.text = setting.description
 		desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		v_box.add_child(desc_label)
-	
+
 	options_container.add_child(HSeparator.new())
+
+
+# --- Affichage personnalise de la categorie Nacelles ---
+
+func _display_nacelles_category() -> void:
+	# Section : Informations et telechargement
+	var info_section := VBoxContainer.new()
+	info_section.add_theme_constant_override("separation", 10)
+	options_container.add_child(info_section)
+
+	# Derniere mise a jour
+	var last_dl_box := HBoxContainer.new()
+	info_section.add_child(last_dl_box)
+
+	var last_dl_label := Label.new()
+	last_dl_label.text = "Dernier telechargement :"
+	last_dl_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	last_dl_box.add_child(last_dl_label)
+
+	_nacelle_status_label = Label.new()
+	_nacelle_status_label.text = NacelleManager.get_last_download_date_formatted()
+	_nacelle_status_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	last_dl_box.add_child(_nacelle_status_label)
+
+	# Version du fichier
+	var version_box := HBoxContainer.new()
+	info_section.add_child(version_box)
+
+	var version_title := Label.new()
+	version_title.text = "Date du fichier :"
+	version_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	version_box.add_child(version_title)
+
+	_nacelle_version_label = Label.new()
+	_nacelle_version_label.text = NacelleManager.get_file_version_date()
+	_nacelle_version_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	version_box.add_child(_nacelle_version_label)
+
+	# Nombre de nacelles
+	var count_box := HBoxContainer.new()
+	info_section.add_child(count_box)
+
+	var count_title := Label.new()
+	count_title.text = "Nacelles disponibles :"
+	count_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	count_box.add_child(count_title)
+
+	_nacelle_count_label = Label.new()
+	_nacelle_count_label.text = str(NacelleManager.get_nacelle_count())
+	_nacelle_count_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	count_box.add_child(_nacelle_count_label)
+
+	# Bouton Telecharger
+	var btn_box := HBoxContainer.new()
+	btn_box.alignment = BoxContainer.ALIGNMENT_END
+	info_section.add_child(btn_box)
+
+	_nacelle_download_btn = Button.new()
+	_nacelle_download_btn.text = "Telecharger la derniere version"
+	_nacelle_download_btn.pressed.connect(_on_nacelle_download_pressed)
+	if NacelleManager.is_downloading():
+		_nacelle_download_btn.text = "Telechargement en cours..."
+		_nacelle_download_btn.disabled = true
+	btn_box.add_child(_nacelle_download_btn)
+
+	options_container.add_child(HSeparator.new())
+
+	# Section : Liste des nacelles
+	var list_header := Label.new()
+	list_header.text = "Liste des nacelles"
+	list_header.add_theme_font_size_override("font_size", 16)
+	options_container.add_child(list_header)
+
+	_nacelle_list_container = VBoxContainer.new()
+	_nacelle_list_container.add_theme_constant_override("separation", 4)
+	options_container.add_child(_nacelle_list_container)
+
+	_populate_nacelle_list()
+
+	# Connecter les signaux du NacelleManager
+	_connect_nacelle_signals()
+
+
+func _populate_nacelle_list() -> void:
+	if not _nacelle_list_container:
+		return
+	for child in _nacelle_list_container.get_children():
+		child.queue_free()
+
+	var nacelles := NacelleManager.get_nacelles()
+
+	if nacelles.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "Aucune nacelle disponible. Cliquez sur \"Telecharger\" pour recuperer la liste."
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_nacelle_list_container.add_child(empty_label)
+		return
+
+	for n: NacelleDefinition in nacelles:
+		var row := _create_nacelle_row(n)
+		_nacelle_list_container.add_child(row)
+		_nacelle_list_container.add_child(HSeparator.new())
+
+
+func _create_nacelle_row(n: NacelleDefinition) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.18, 0.22, 0.8)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	panel.add_child(vbox)
+
+	# Ligne 1 : Nom + Type drone
+	var line1 := HBoxContainer.new()
+	vbox.add_child(line1)
+
+	var name_label := Label.new()
+	name_label.text = n.name
+	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line1.add_child(name_label)
+
+	if not n.type_drone.is_empty():
+		var type_label := Label.new()
+		type_label.text = n.type_drone
+		var type_color := Color(0.29, 0.56, 0.85) if n.type_drone.to_upper() == "RIFF" else Color(0.49, 0.78, 0.89)
+		type_label.add_theme_color_override("font_color", type_color)
+		line1.add_child(type_label)
+
+	# Ligne 2 : Details
+	var details_parts: PackedStringArray = []
+	if not n.mount_type.is_empty():
+		details_parts.append("Montage: %s" % n.get_mount_type_label())
+	if n.weight > 0:
+		details_parts.append("Poids: %dg" % n.weight)
+	if n.effect_count > 0:
+		details_parts.append("Effets: %d" % n.effect_count)
+
+	if not details_parts.is_empty():
+		var details_label := Label.new()
+		details_label.text = " | ".join(details_parts)
+		details_label.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
+		details_label.add_theme_font_size_override("font_size", 12)
+		vbox.add_child(details_label)
+
+	# Section depliable : Channels / Effets
+	if not n.effects.is_empty():
+		var channels_container := VBoxContainer.new()
+		channels_container.add_theme_constant_override("separation", 2)
+		channels_container.visible = false
+		vbox.add_child(channels_container)
+
+		# Toggle button
+		var toggle_btn := Button.new()
+		toggle_btn.text = "▶ Channels (%d)" % n.effects.size()
+		toggle_btn.flat = true
+		toggle_btn.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+		toggle_btn.add_theme_font_size_override("font_size", 12)
+		toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		# Insert toggle before the channels container
+		vbox.move_child(channels_container, vbox.get_child_count() - 1)
+		vbox.add_child(toggle_btn)
+		vbox.move_child(toggle_btn, channels_container.get_index())
+		vbox.move_child(channels_container, toggle_btn.get_index() + 1)
+
+		toggle_btn.pressed.connect(func():
+			channels_container.visible = not channels_container.visible
+			if channels_container.visible:
+				toggle_btn.text = "▼ Channels (%d)" % n.effects.size()
+			else:
+				toggle_btn.text = "▶ Channels (%d)" % n.effects.size()
+		)
+
+		# Header des colonnes
+		var header := HBoxContainer.new()
+		header.add_theme_constant_override("separation", 4)
+		channels_container.add_child(header)
+
+		var h_ch := Label.new()
+		h_ch.text = "Channel"
+		h_ch.custom_minimum_size.x = 70
+		h_ch.add_theme_font_size_override("font_size", 11)
+		h_ch.add_theme_color_override("font_color", Color(0.5, 0.55, 0.6))
+		header.add_child(h_ch)
+
+		var h_ah := Label.new()
+		h_ah.text = "Angle H"
+		h_ah.custom_minimum_size.x = 80
+		h_ah.add_theme_font_size_override("font_size", 11)
+		h_ah.add_theme_color_override("font_color", Color(0.5, 0.55, 0.6))
+		header.add_child(h_ah)
+
+		var h_ap := Label.new()
+		h_ap.text = "Angle P"
+		h_ap.custom_minimum_size.x = 80
+		h_ap.add_theme_font_size_override("font_size", 11)
+		h_ap.add_theme_color_override("font_color", Color(0.5, 0.55, 0.6))
+		header.add_child(h_ap)
+
+		var sep := HSeparator.new()
+		channels_container.add_child(sep)
+
+		# Lignes des channels
+		for effect in n.effects:
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 4)
+			channels_container.add_child(row)
+
+			var ch_label := Label.new()
+			ch_label.text = "Ch %d" % int(effect.get("channel", 0))
+			ch_label.custom_minimum_size.x = 70
+			ch_label.add_theme_font_size_override("font_size", 12)
+			ch_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+			row.add_child(ch_label)
+
+			var ah_label := Label.new()
+			ah_label.text = "%.1f°" % float(effect.get("angleH", 0.0))
+			ah_label.custom_minimum_size.x = 80
+			ah_label.add_theme_font_size_override("font_size", 12)
+			ah_label.add_theme_color_override("font_color", Color(0.7, 0.85, 0.7))
+			row.add_child(ah_label)
+
+			var ap_label := Label.new()
+			ap_label.text = "%.1f°" % float(effect.get("angleP", 0.0))
+			ap_label.custom_minimum_size.x = 80
+			ap_label.add_theme_font_size_override("font_size", 12)
+			ap_label.add_theme_color_override("font_color", Color(0.7, 0.75, 0.9))
+			row.add_child(ap_label)
+
+	return panel
+
+
+func _on_nacelle_download_pressed() -> void:
+	if _nacelle_download_btn:
+		_nacelle_download_btn.text = "Telechargement en cours..."
+		_nacelle_download_btn.disabled = true
+	NacelleManager.download_nacelles()
+
+
+func _connect_nacelle_signals() -> void:
+	if not NacelleManager.nacelles_loaded.is_connected(_on_nacelles_updated):
+		NacelleManager.nacelles_loaded.connect(_on_nacelles_updated)
+	if not NacelleManager.nacelles_download_failed.is_connected(_on_nacelles_download_failed):
+		NacelleManager.nacelles_download_failed.connect(_on_nacelles_download_failed)
+	if not NacelleManager.download_finished.is_connected(_on_download_finished):
+		NacelleManager.download_finished.connect(_on_download_finished)
+
+
+func _disconnect_nacelle_signals() -> void:
+	if NacelleManager.nacelles_loaded.is_connected(_on_nacelles_updated):
+		NacelleManager.nacelles_loaded.disconnect(_on_nacelles_updated)
+	if NacelleManager.nacelles_download_failed.is_connected(_on_nacelles_download_failed):
+		NacelleManager.nacelles_download_failed.disconnect(_on_nacelles_download_failed)
+	if NacelleManager.download_finished.is_connected(_on_download_finished):
+		NacelleManager.download_finished.disconnect(_on_download_finished)
+
+
+func _on_nacelles_updated() -> void:
+	if _nacelle_status_label:
+		_nacelle_status_label.text = NacelleManager.get_last_download_date_formatted()
+	if _nacelle_version_label:
+		_nacelle_version_label.text = NacelleManager.get_file_version_date()
+	if _nacelle_count_label:
+		_nacelle_count_label.text = str(NacelleManager.get_nacelle_count())
+	_populate_nacelle_list()
+
+
+func _on_nacelles_download_failed(error_msg: String) -> void:
+	if _nacelle_status_label:
+		_nacelle_status_label.text = "Erreur: %s" % error_msg
+		_nacelle_status_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+
+
+func _on_download_finished() -> void:
+	if _nacelle_download_btn:
+		_nacelle_download_btn.text = "Telecharger la derniere version"
+		_nacelle_download_btn.disabled = false
+
 
 func _on_apply_pressed() -> void:
 	# Appliquer toutes les valeurs du draft au SettingsManager
