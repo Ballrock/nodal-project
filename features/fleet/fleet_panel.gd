@@ -40,13 +40,13 @@ func _toggle_collapse() -> void:
 
 func _update_collapse_visual() -> void:
 	if _collapsed:
-		_collapse_btn.text = "▶"
+		_collapse_btn.text = "chevron_right"
 		_title_label.visible = false
 		_edit_btn.visible = false
 		_composition_summary.visible = false
 		custom_minimum_size.x = COLLAPSED_WIDTH
 	else:
-		_collapse_btn.text = "◀"
+		_collapse_btn.text = "chevron_left"
 		_title_label.visible = true
 		_edit_btn.visible = true
 		_composition_summary.visible = true
@@ -117,7 +117,7 @@ func refresh_composition_summary() -> void:
 
 	if unresolved > 0:
 		var unresolved_label := Label.new()
-		unresolved_label.text = "Non résolu : %d drones ⚠" % unresolved
+		unresolved_label.text = "Non résolu : %d drones" % unresolved
 		unresolved_label.add_theme_color_override("font_color", CompositionBar.COLOR_UNRESOLVED)
 		unresolved_label.add_theme_font_size_override("font_size", 12)
 		_constraint_list.add_child(unresolved_label)
@@ -132,7 +132,7 @@ func refresh_composition_summary() -> void:
 
 	if allocated > total and total > 0:
 		var overflow_label := Label.new()
-		overflow_label.text = "Surplus : %d drones ⚠" % (allocated - total)
+		overflow_label.text = "Surplus : %d drones" % (allocated - total)
 		overflow_label.add_theme_color_override("font_color", CompositionBar.COLOR_OVERFLOW)
 		overflow_label.add_theme_font_size_override("font_size", 12)
 		_constraint_list.add_child(overflow_label)

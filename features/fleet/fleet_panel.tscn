@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://features/fleet/fleet_panel.gd" id="1"]
 [ext_resource type="Script" path="res://ui/components/composition_bar.gd" id="2"]
+[ext_resource type="FontFile" path="res://assets/fonts/material_symbols_rounded.ttf" id="3_font"]
 
 [sub_resource type="StyleBoxFlat" id="panel_bg"]
 content_margin_left = 8.0
@@ -56,7 +57,8 @@ theme_override_constants/separation = 6
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/normal = SubResource("btn_collapse_style")
-text = "◀"
+theme_override_fonts/font = ExtResource("3_font")
+text = "chevron_left"
 
 [node name="FleetPanelTitle" type="Label" parent="FleetContent/FleetPanelHeader"]
 unique_name_in_owner = true
