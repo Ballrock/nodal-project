@@ -43,7 +43,7 @@ Main (Control, plein écran)
 │               └── TimelineSegment_N …
 ├── FleetPanel (PanelContainer — volet latéral gauche, ~250px, collapsible, résumé Composition)
 │   ├── FleetPanelHeader (HBoxContainer — titre "Composition" + bouton "Éditer")
-│   └── CompositionSummary (VBoxContainer — résumé total, barre, profils)
+│   └── CompositionSummary (VBoxContainer — résumé total, barre, contraintes)
 ├── CompositionWindow (Window — fenêtre native d'édition de la composition)
 ├── ConfigWindow (Window — fenêtre flottante de configuration, multi-instance)
 │   ├── SlotListEditor (liste d'emplacements modifiable)
@@ -343,7 +343,7 @@ res://
 │   ├── config_panel.tscn       # Panneau de configuration
 │   ├── fleet_panel.tscn        # Panneau de résumé Composition
 │   ├── composition_window.tscn # Fenêtre native d'édition de la composition
-│   ├── profile_dialog.tscn     # Dialogue de création/édition de profil
+│   ├── constraint_dialog.tscn     # Dialogue de création/édition de contrainte
 │   └── zoom_detail_overlay.tscn
 ├── scripts/
 │   ├── main.gd                 # Orchestration, input routing
@@ -356,7 +356,7 @@ res://
 │   ├── config_panel.gd         # Logique du panneau de configuration
 │   ├── fleet_panel.gd          # Logique du panneau Composition
 │   ├── composition_window.gd   # Logique de la fenêtre Composition
-│   ├── profile_dialog.gd       # Logique du dialogue de profil
+│   ├── constraint_dialog.gd       # Logique du dialogue de contrainte
 │   ├── zoom_detail_overlay.gd  # Vue détaillée
 │   ├── snap_helper.gd          # Utilitaire magnétisme (timeline + slots)
 │   ├── timeline_panel.gd       # Panneau NLE en bas (pistes + segments)
@@ -394,7 +394,7 @@ res://
 | `Ctrl + A` | Tout sélectionner |
 | `Shift` (maintenu) | Désactiver le magnétisme timeline pendant un drag |
 | `Alt` (maintenu) | Désactiver le magnétisme des slots pendant un drag câble |
-| `Escape` | Ferme aussi la CompositionWindow / ProfileDialog si ouvert |
+| `Escape` | Ferme aussi la CompositionWindow / ConstraintDialog si ouvert |
 
 ---
 
@@ -430,7 +430,7 @@ res://
   - Label **"Total : N drones"** (tiré de `composition/total_drones`)
   - Barre visuelle RIFF / EMO (proportionnelle)
   - Label **"Alloués : X / N"** + couleur (vert si X == N, orange si X < N, rouge si X > N)
-  - Liste des profils (chacun sur une ligne)
+  - Liste des contraintes (chacune sur une ligne)
   - Label d'alerte si drones non alloués
 
 ### 14.3. Figure Flotte (FleetFigure)
@@ -448,7 +448,7 @@ res://
 ## 15. Dialogue de Flotte (FleetDialog) — OBSOLÈTE
 
 > **Note :** Le FleetDialog n'est plus utilisé depuis la migration vers le système de Composition.
-> Les flottes sont désormais gérées directement via la FleetFigure et le système de profils
+> Les flottes sont désormais gérées directement via la FleetFigure et le système de contraintes
 > dans la CompositionWindow. Le FleetDialog reste présent dans le code mais n'est plus
 > instancié ni connecté.
 
@@ -458,7 +458,7 @@ res://
 
 ### 15bis.1. Panneau Composition (CompositionPanel — volet latéral gauche)
 
-Le volet latéral gauche collapsible est renommé **"Composition"**. Il affiche un **résumé** de la composition de la scénographie (total drones, répartition RIFF/EMO, liste des profils avec quantités, alerte sur drones non alloués).
+Le volet latéral gauche collapsible est renommé **"Composition"**. Il affiche un **résumé** de la composition de la scénographie (total drones, répartition RIFF/EMO, liste des contraintes avec quantités, alerte sur drones non alloués).
 
 **Structure du header** :
 - Bouton collapse (`◀`/`▶`)
@@ -467,14 +467,15 @@ Le volet latéral gauche collapsible est renommé **"Composition"**. Il affiche 
 
 **Corps (résumé)** :
 - Label **"Total : N drones"** (tiré de `composition/total_drones`)
-- Barre visuelle RIFF / EMO (proportionnelle)
+- Barre visuelle RIFF / EMO (proportionnelle, basée sur les implications résolues)
 - Label **"Alloués : X / N"** + couleur (vert si X == N, orange si X < N, rouge si X > N)
-- Liste des profils (chacun sur une ligne) :
-  - Pastille colorée + nom + "×quantité"
-  - Sous-titre : "TYPE · Nacelle · effets…"
+- Liste des contraintes (chacune sur une ligne) :
+  - Nom + "×quantité"
+  - Sous-titre : "Catégorie: Valeur"
+  - Si NACELLE ou PYRO_EFFECT : implication type drone (↳ RIFF ⚡ ou ↳ RIFF / EMO ⚠)
 - Label d'alerte si drones non alloués
 
-Le panneau sert désormais uniquement de résumé Composition (pas de gestion directe des flottes dans le panneau).
+Le panneau sert uniquement de résumé Composition (pas de gestion directe des flottes dans le panneau).
 
 ### 15bis.2. Fenêtre Composition (CompositionWindow)
 
@@ -483,51 +484,96 @@ Fenêtre native (`Window`) ouverte par le bouton "Éditer" du panneau Compositio
 **Section haute** :
 - `SpinBox` **"Total drones"** (min 0, max 99999)
 - Barre de résumé RIFF/EMO + drones alloués/disponibles (lecture seule)
+- Label résumé : "RIFF: X | EMO: Y | Non résolu: Z | Alloués: A / T"
 
-**Section profils** :
-- Liste scrollable des profils existants. Chaque profil est un bloc :
-  - Nom, quantité, type drone, nacelle, effets (lecture seule dans la liste)
+**Section contraintes** :
+- Liste scrollable des contraintes existantes. Chaque contrainte est un bloc :
+  - Titre : Nom ×quantité
+  - Sous-titre : Catégorie + valeur affichée
+  - Implications résolues (nacelle, type drone) avec indicateurs ⚡ (résolu) ou ⚠ (ambigu)
   - Boutons **Éditer** (✏️) et **Supprimer** (🗑)
-- Bouton **"+ Profil"** en bas → ouvre le `ProfileDialog` (§15bis.3)
+- Bouton **"+ Contrainte"** en bas → ouvre le `ConstraintDialog` (§15bis.3)
 
 **Boutons** :
-- **Appliquer** : enregistre le total et les profils dans le `SettingsManager` (scope PROJECT, catégorie "Composition") et ferme la fenêtre.
+- **Appliquer** : enregistre le total et les contraintes dans le `SettingsManager` (scope PROJECT, catégorie "Composition") et ferme la fenêtre.
 - **Annuler** : ferme sans sauvegarder.
 
-### 15bis.3. Dialogue Profil (ProfileDialog)
+### 15bis.3. Dialogue Contrainte (ConstraintDialog)
 
-Fenêtre modale pour créer ou modifier un profil de drones.
+Fenêtre modale pour créer ou modifier une contrainte de drones.
 
-**Champs** :
-| Champ | Contrôle | Contraintes |
-|---|---|---|
-| **Nom** | `LineEdit` | Obligatoire, non vide |
-| **Quantité** | `SpinBox` | Min 1, max 99999 |
-| **Type de drone** | `OptionButton` (RIFF / EMO) | Sélection obligatoire |
-| **Nacelle** | `OptionButton` | Filtré par type de drone (seules les nacelles compatibles apparaissent) |
-| **Effets** | Liste de `CheckBox` | Filtrés par nacelle (incompatibles grisés avec tooltip). Chaque effet coché peut avoir une variante (`OptionButton`) |
+#### Philosophie : filtre générique par catégorie
 
-**Cascades** :
-1. Changement de **type drone** → refiltre les nacelles compatibles (réinitialise la sélection nacelle si l'actuelle est incompatible)
-2. Changement de **nacelle** → refiltre les effets compatibles (décoche les effets devenus incompatibles)
+Chaque contrainte est un **filtre simple** : l'artiste choisit une **catégorie**, puis une **valeur** dans cette catégorie. Le système déduit automatiquement les **implications** (sous-contraintes) par cascade ascendante.
 
-**Boutons** : Valider / Annuler / Supprimer (en édition uniquement)
+```
+Effet Pyro → Nacelle(s) compatible(s) → Type(s) de drone compatible(s)
+Nacelle → Type(s) de drone compatible(s)
+Type drone → direct
+Payload → aucune implication (extensible)
+```
+
+#### 4 catégories de contraintes
+
+| Catégorie | Enum | Valeur stockée | Exemple |
+|---|---|---|---|
+| **Type drone** | `DRONE_TYPE = 0` | `"0"` (RIFF) ou `"1"` (EMO) | "30 RIFF" |
+| **Nacelle** | `NACELLE = 1` | ID nacelle (ex: `"nacelle_lasermount"`) | "20 LaserMount" |
+| **Payload** | `PAYLOAD = 2` | ID payload (ex: `"payload_laser"`) | "15 Laser" |
+| **Effet Pyro** | `PYRO_EFFECT = 3` | `"effect_id::variant"` ou `"effect_id"` | "23 Feu pyro — Bengale verte" |
+
+#### Champs du dialogue
+
+| Champ | Contrôle | Contraintes | Requis |
+|---|---|---|---|
+| **Nom** | `LineEdit` | Obligatoire, non vide. Auto-rempli depuis la valeur sélectionnée (désactivé si édité manuellement) | Oui |
+| **Catégorie** | `OptionButton` | 4 options : Type drone, Nacelle, Payload, Effet Pyro | Oui |
+| **Valeur** | `OptionButton` | Peuplé dynamiquement selon la catégorie choisie | Oui |
+| **Quantité** | `SpinBox` | Min 1, max 99999 | Oui |
+
+#### Zone d'implications
+
+Sous le champ Valeur, une zone affiche les implications déduites automatiquement :
+- **Effet Pyro** → affiche nacelle(s) compatible(s) + type(s) de drone déduit(s)
+- **Nacelle** → affiche type(s) de drone déduit(s)
+- **Type drone** → aucune implication affichée
+- **Payload** → "Aucune implication déduite (extensible)"
+
+Indicateurs : ⚡ = résolu (unique), ⚠ = ambigu (plusieurs options)
+
+#### Auto-nom
+
+- À l'ouverture en création, le nom est auto-rempli avec le texte de la valeur sélectionnée
+- Si l'utilisateur modifie manuellement le nom, l'auto-nom est désactivé
+- En édition, l'auto-nom est désactivé
+
+#### Boutons
+
+Valider / Annuler / Supprimer (en édition uniquement)
 
 ### 15bis.4. Modèle de données
 
 | Classe | Fichier | Scope | Champs |
 |---|---|---|---|
 | `NacelleDefinition` | `core/data/nacelle_definition.gd` | Global | `id: StringName`, `name: String`, `compatible_drone_types: Array[int]` |
-| `EffectDefinition` | `core/data/effect_definition.gd` | Global | `id: StringName`, `name: String`, `category: String` (PYRO/SMOKE/STROBE/LASER), `compatible_nacelle_ids: Array[StringName]`, `variants: Array[String]` |
-| `DroneProfile` | `core/data/drone_profile.gd` | Projet | `id: StringName`, `name: String`, `drone_type: int`, `nacelle_id: StringName`, `effects: Array[Dictionary]` ({effect_id, variant}), `quantity: int` |
+| `EffectDefinition` | `core/data/effect_definition.gd` | Global | `id: StringName`, `name: String`, `category: int` (PYRO/SMOKE/STROBE/LASER), `compatible_nacelle_ids: Array[StringName]`, `variants: Array[String]` |
+| `DroneConstraint` | `core/data/drone_constraint.gd` | Projet | `id: StringName`, `name: String`, `category: int` (ConstraintCategory enum), `value: String`, `quantity: int` |
+
+**Enum `ConstraintCategory`** : `DRONE_TYPE = 0`, `NACELLE = 1`, `PAYLOAD = 2`, `PYRO_EFFECT = 3`
+
+**Méthodes clés de `DroneConstraint`** :
+- `get_category_label() → String` : libellé de la catégorie
+- `get_value_display_label(nacelles, effects) → String` : libellé humain de la valeur
+- `resolve_implications(nacelles, effects) → Dictionary` : résout les sous-contraintes → `{implied_nacelle_ids, implied_drone_types, nacelle_resolved, type_resolved, implied_nacelle_names, implied_drone_type_labels}`
 
 **Données de référence (paramètres globaux)** :
 - `composition/nacelles` : `Array[Dictionary]` — catalogue des nacelles (sérialisé en JSON)
 - `composition/effects` : `Array[Dictionary]` — catalogue des effets (sérialisé en JSON)
+- `composition/payloads` : `Array[Dictionary]` — catalogue des payloads (sérialisé en JSON)
 
 **Données de projet** :
 - `composition/total_drones` : `int` — nombre total de drones déclaré
-- `composition/profiles` : `Array[Dictionary]` — profils de drones (sérialisé en JSON)
+- `composition/constraints` : `Array[Dictionary]` — contraintes de drones (sérialisé en JSON)
 
 ---
 

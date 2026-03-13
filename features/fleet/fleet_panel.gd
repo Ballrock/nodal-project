@@ -2,7 +2,7 @@ class_name FleetPanel
 extends PanelContainer
 
 ## Volet latéral gauche collapsible : résumé Composition.
-## Affiche un résumé des profils de drones et permet d'ouvrir
+## Affiche un résumé des contraintes de drones et permet d'ouvrir
 ## la fenêtre d'édition de la composition.
 
 signal composition_edit_requested
@@ -17,9 +17,9 @@ const COLLAPSED_WIDTH := 36.0
 @onready var _content: VBoxContainer = %FleetContent
 @onready var _composition_summary: VBoxContainer = %CompositionSummary
 @onready var _total_label: Label = %TotalLabel
-@onready var _riff_emo_bar: ProgressBar = %RiffEmoBar
+@onready var _riff_emo_bar: CompositionBar = %RiffEmoBar
 @onready var _alloc_label: Label = %AllocLabel
-@onready var _profile_list: VBoxContainer = %ProfileList
+@onready var _constraint_list: VBoxContainer = %ConstraintList
 
 var _collapsed: bool = false
 
@@ -56,29 +56,37 @@ func _update_collapse_visual() -> void:
 ## Rafraîchit le résumé Composition dans le panneau.
 func refresh_composition_summary() -> void:
 	var total: int = int(SettingsManager.get_setting("composition/total_drones"))
-	var profiles_raw = SettingsManager.get_setting("composition/profiles")
-	var profiles: Array[DroneProfile] = []
-	if profiles_raw is Array:
-		for d in profiles_raw:
+	var constraints_raw = SettingsManager.get_setting("composition/constraints")
+	var constraints: Array[DroneConstraint] = []
+	if constraints_raw is Array:
+		for d in constraints_raw:
 			if d is Dictionary:
-				profiles.append(DroneProfile.from_dict(d))
+				constraints.append(DroneConstraint.from_dict(d))
 
 	_total_label.text = "Total : %d drones" % total
 
+	var nacelles_catalog := _get_nacelles_catalog()
+	var effects_catalog := _get_effects_catalog()
+
 	var riff_count := 0
 	var emo_count := 0
+	var unresolved := 0
 	var allocated := 0
-	for p in profiles:
+	for p in constraints:
 		allocated += p.quantity
-		if p.drone_type == FleetData.DroneType.DRONE_RIFF:
-			riff_count += p.quantity
+		var implications := p.resolve_implications(nacelles_catalog, effects_catalog)
+		var types: Array = implications.get("implied_drone_types", [])
+		if types.size() == 1:
+			if int(types[0]) == FleetData.DroneType.DRONE_RIFF:
+				riff_count += p.quantity
+			else:
+				emo_count += p.quantity
+		elif types.size() > 1:
+			unresolved += p.quantity
 		else:
-			emo_count += p.quantity
+			unresolved += p.quantity
 
-	if total > 0:
-		_riff_emo_bar.value = float(riff_count) / float(total) * 100.0
-	else:
-		_riff_emo_bar.value = 0.0
+	_riff_emo_bar.update_bar(riff_count, emo_count, unresolved, total)
 
 	_alloc_label.text = "Alloués : %d / %d" % [allocated, total]
 	if allocated == total:
@@ -88,45 +96,63 @@ func refresh_composition_summary() -> void:
 	else:
 		_alloc_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 
-	# Rebuild profile list
-	for child in _profile_list.get_children():
+	# Rebuild compiled summary
+	for child in _constraint_list.get_children():
 		child.queue_free()
 
-	var nacelles_raw = SettingsManager.get_setting("composition/nacelles")
-	var nacelle_map: Dictionary = {}
-	if nacelles_raw is Array:
-		for n in nacelles_raw:
-			if n is Dictionary:
-				nacelle_map[str(n.get("id", ""))] = str(n.get("name", ""))
+	# Show compiled drone counts
+	if riff_count > 0:
+		var riff_label := Label.new()
+		riff_label.text = "RIFF : %d drones" % riff_count
+		riff_label.add_theme_color_override("font_color", CompositionBar.COLOR_RIFF)
+		riff_label.add_theme_font_size_override("font_size", 12)
+		_constraint_list.add_child(riff_label)
 
-	for p in profiles:
-		var line := VBoxContainer.new()
-		line.add_theme_constant_override("separation", 0)
-		var top := Label.new()
-		top.text = "%s  ×%d" % [p.name, p.quantity]
-		top.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-		line.add_child(top)
+	if emo_count > 0:
+		var emo_label := Label.new()
+		emo_label.text = "EMO : %d drones" % emo_count
+		emo_label.add_theme_color_override("font_color", CompositionBar.COLOR_EMO)
+		emo_label.add_theme_font_size_override("font_size", 12)
+		_constraint_list.add_child(emo_label)
 
-		var nacelle_name: String = nacelle_map.get(str(p.nacelle_id), "—")
-		var effects_str := ""
-		if p.effects.size() > 0:
-			var names: Array[String] = []
-			for e in p.effects:
-				var v: String = str(e.get("variant", ""))
-				if v != "":
-					names.append(v)
-			if names.size() > 0:
-				effects_str = " · " + ", ".join(names)
+	if unresolved > 0:
+		var unresolved_label := Label.new()
+		unresolved_label.text = "Non résolu : %d drones ⚠" % unresolved
+		unresolved_label.add_theme_color_override("font_color", CompositionBar.COLOR_UNRESOLVED)
+		unresolved_label.add_theme_font_size_override("font_size", 12)
+		_constraint_list.add_child(unresolved_label)
 
-		var sub := Label.new()
-		sub.text = "  %s · %s%s" % [p.get_drone_type_label(), nacelle_name, effects_str]
-		sub.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		sub.add_theme_font_size_override("font_size", 11)
-		line.add_child(sub)
-		_profile_list.add_child(line)
+	var non_allocated := total - allocated
+	if non_allocated > 0:
+		var na_label := Label.new()
+		na_label.text = "Non alloués : %d drones" % non_allocated
+		na_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		na_label.add_theme_font_size_override("font_size", 12)
+		_constraint_list.add_child(na_label)
 
-	if profiles.is_empty():
+	if allocated > total and total > 0:
+		var overflow_label := Label.new()
+		overflow_label.text = "Surplus : %d drones ⚠" % (allocated - total)
+		overflow_label.add_theme_color_override("font_color", CompositionBar.COLOR_OVERFLOW)
+		overflow_label.add_theme_font_size_override("font_size", 12)
+		_constraint_list.add_child(overflow_label)
+
+	if constraints.is_empty():
 		var empty_label := Label.new()
-		empty_label.text = "Aucun profil défini"
+		empty_label.text = "Aucune contrainte définie"
 		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		_profile_list.add_child(empty_label)
+		_constraint_list.add_child(empty_label)
+
+
+func _get_nacelles_catalog() -> Array:
+	var raw = SettingsManager.get_setting("composition/nacelles")
+	if raw is Array:
+		return raw
+	return []
+
+
+func _get_effects_catalog() -> Array:
+	var raw = SettingsManager.get_setting("composition/effects")
+	if raw is Array:
+		return raw
+	return []

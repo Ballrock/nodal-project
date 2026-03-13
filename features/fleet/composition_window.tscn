@@ -1,6 +1,7 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://features/fleet/composition_window.gd" id="1"]
+[ext_resource type="Script" path="res://ui/components/composition_bar.gd" id="2"]
 
 [sub_resource type="StyleBoxFlat" id="dialog_panel_style"]
 content_margin_left = 24.0
@@ -36,7 +37,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="StyleBoxFlat" id="btn_add_profile_style"]
+[sub_resource type="StyleBoxFlat" id="btn_add_constraint_style"]
 content_margin_left = 12.0
 content_margin_top = 6.0
 content_margin_right = 12.0
@@ -86,13 +87,11 @@ max_value = 99999.0
 step = 1.0
 value = 0.0
 
-[node name="SummaryBar" type="ProgressBar" parent="PanelContainer/VBox"]
+[node name="SummaryBar" type="Control" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(0, 16)
-max_value = 100.0
-value = 0.0
-show_percentage = false
+script = ExtResource("2")
 
 [node name="SummaryLabel" type="Label" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
@@ -103,25 +102,26 @@ text = "RIFF: 0  |  EMO: 0  |  Alloués: 0 / 0"
 layout_mode = 2
 theme_override_colors/separator_color = Color(0.3, 0.3, 0.35, 1)
 
-[node name="ProfilesTitle" type="Label" parent="PanelContainer/VBox"]
+[node name="ConstraintsTitle" type="Label" parent="PanelContainer/VBox"]
 layout_mode = 2
-text = "Profils de drones"
+text = "Contraintes"
 
-[node name="ProfilesScroll" type="ScrollContainer" parent="PanelContainer/VBox"]
+[node name="ConstraintsScroll" type="ScrollContainer" parent="PanelContainer/VBox"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 120)
 size_flags_vertical = 3
 
-[node name="ProfilesContainer" type="VBoxContainer" parent="PanelContainer/VBox/ProfilesScroll"]
+[node name="ConstraintsContainer" type="VBoxContainer" parent="PanelContainer/VBox/ConstraintsScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="AddProfileBtn" type="Button" parent="PanelContainer/VBox"]
+[node name="AddConstraintBtn" type="Button" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_styles/normal = SubResource("btn_add_profile_style")
-text = "+ Profil"
+theme_override_styles/normal = SubResource("btn_add_constraint_style")
+text = "+ Contrainte"
 
 [node name="Sep2" type="HSeparator" parent="PanelContainer/VBox"]
 layout_mode = 2

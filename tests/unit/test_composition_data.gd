@@ -1,6 +1,6 @@
 extends GutTest
 
-## Tests unitaires pour NacelleDefinition, EffectDefinition et DroneProfile.
+## Tests unitaires pour NacelleDefinition, EffectDefinition et DroneConstraint.
 
 
 # ── NacelleDefinition ──
@@ -115,84 +115,197 @@ func test_effect_roundtrip() -> void:
 	assert_eq(str(restored.id), str(original.id))
 
 
-# ── DroneProfile ──
+# ── DroneConstraint ──
 
-func test_profile_create() -> void:
-	var effects: Array[Dictionary] = [{"effect_id": &"e1", "variant": "Verte"}]
-	var p := DroneProfile.create("Bengales", FleetData.DroneType.DRONE_RIFF, &"nac1", effects, 200)
+func test_constraint_create() -> void:
+	var p := DroneConstraint.create("Bengales", DroneConstraint.ConstraintCategory.PYRO_EFFECT, "effect_pyro::Bengale verte", 200)
 	assert_ne(str(p.id), "", "Doit avoir un id")
 	assert_eq(p.name, "Bengales")
-	assert_eq(p.drone_type, FleetData.DroneType.DRONE_RIFF)
-	assert_eq(p.nacelle_id, &"nac1")
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.PYRO_EFFECT)
+	assert_eq(p.value, "effect_pyro::Bengale verte")
 	assert_eq(p.quantity, 200)
-	assert_eq(p.effects.size(), 1)
 
 
-func test_profile_create_defaults() -> void:
-	var p := DroneProfile.create()
-	assert_eq(p.name, "Nouveau profil")
-	assert_eq(p.drone_type, FleetData.DroneType.DRONE_RIFF)
+func test_constraint_create_defaults() -> void:
+	var p := DroneConstraint.create()
+	assert_eq(p.name, "Nouvelle contrainte")
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.DRONE_TYPE)
+	assert_eq(p.value, "")
 	assert_eq(p.quantity, 1)
-	assert_eq(p.effects, [])
 
 
-func test_profile_get_drone_type_label() -> void:
-	var p := DroneProfile.new()
-	p.drone_type = FleetData.DroneType.DRONE_RIFF
-	assert_eq(p.get_drone_type_label(), "RIFF")
-	p.drone_type = FleetData.DroneType.DRONE_EMO
-	assert_eq(p.get_drone_type_label(), "EMO")
+func test_constraint_get_category_label() -> void:
+	var p := DroneConstraint.new()
+	p.category = DroneConstraint.ConstraintCategory.DRONE_TYPE
+	assert_eq(p.get_category_label(), "Type drone")
+	p.category = DroneConstraint.ConstraintCategory.NACELLE
+	assert_eq(p.get_category_label(), "Nacelle")
+	p.category = DroneConstraint.ConstraintCategory.PAYLOAD
+	assert_eq(p.get_category_label(), "Payload")
+	p.category = DroneConstraint.ConstraintCategory.PYRO_EFFECT
+	assert_eq(p.get_category_label(), "Effet Pyro")
 
 
-func test_profile_to_dict() -> void:
-	var effects: Array[Dictionary] = [{"effect_id": &"e1", "variant": "Rouge"}]
-	var p := DroneProfile.create("Test", 0, &"nac1", effects, 50)
+func test_constraint_get_value_display_label_drone_type() -> void:
+	var p := DroneConstraint.create("Riff", DroneConstraint.ConstraintCategory.DRONE_TYPE, "0", 10)
+	assert_eq(p.get_value_display_label([], []), "RIFF")
+	p.value = "1"
+	assert_eq(p.get_value_display_label([], []), "EMO")
+
+
+func test_constraint_get_value_display_label_nacelle() -> void:
+	var nacelles := [{"id": "nacelle_standard", "name": "Standard", "compatible_drone_types": [0, 1]}]
+	var p := DroneConstraint.create("Std", DroneConstraint.ConstraintCategory.NACELLE, "nacelle_standard", 10)
+	assert_eq(p.get_value_display_label(nacelles, []), "Standard")
+
+
+func test_constraint_get_value_display_label_payload() -> void:
+	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_laser", 10)
+	assert_eq(p.get_value_display_label([], []), "Laser")
+
+
+func test_constraint_get_value_display_label_pyro_effect() -> void:
+	var effects := [{"id": "effect_pyro", "name": "Feu pyro", "compatible_nacelle_ids": ["nacelle_standard"], "variants": ["Bengale verte"]}]
+	var p := DroneConstraint.create("Bengale", DroneConstraint.ConstraintCategory.PYRO_EFFECT, "effect_pyro::Bengale verte", 10)
+	assert_eq(p.get_value_display_label([], effects), "Feu pyro — Bengale verte")
+
+
+func test_constraint_to_dict() -> void:
+	var p := DroneConstraint.create("Test", DroneConstraint.ConstraintCategory.NACELLE, "nac1", 50)
 	var d := p.to_dict()
 	assert_eq(d["name"], "Test")
-	assert_eq(d["drone_type"], 0)
-	assert_eq(d["nacelle_id"], "nac1")
+	assert_eq(d["category"], DroneConstraint.ConstraintCategory.NACELLE)
+	assert_eq(d["value"], "nac1")
 	assert_eq(d["quantity"], 50)
-	assert_eq(d["effects"].size(), 1)
-	assert_eq(d["effects"][0]["variant"], "Rouge")
 
 
-func test_profile_from_dict() -> void:
+func test_constraint_from_dict() -> void:
 	var d := {
 		"id": "prof_test",
 		"name": "Lasers",
-		"drone_type": 1,
-		"nacelle_id": "nac_laser",
-		"effects": [{"effect_id": "e_laser", "variant": "RGB"}],
+		"category": DroneConstraint.ConstraintCategory.PYRO_EFFECT,
+		"value": "e_laser::RGB",
 		"quantity": 50,
 	}
-	var p := DroneProfile.from_dict(d)
+	var p := DroneConstraint.from_dict(d)
 	assert_eq(str(p.id), "prof_test")
 	assert_eq(p.name, "Lasers")
-	assert_eq(p.drone_type, FleetData.DroneType.DRONE_EMO)
-	assert_eq(str(p.nacelle_id), "nac_laser")
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.PYRO_EFFECT)
+	assert_eq(p.value, "e_laser::RGB")
 	assert_eq(p.quantity, 50)
-	assert_eq(p.effects.size(), 1)
 
 
-func test_profile_from_dict_defaults() -> void:
+func test_constraint_from_dict_defaults() -> void:
 	var d := {}
-	var p := DroneProfile.from_dict(d)
-	assert_eq(p.name, "Nouveau profil")
+	var p := DroneConstraint.from_dict(d)
+	assert_eq(p.name, "Nouvelle contrainte")
 	assert_eq(p.quantity, 1)
-	assert_eq(p.effects, [])
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.DRONE_TYPE)
+	assert_eq(p.value, "0")
 
 
-func test_profile_roundtrip() -> void:
-	var effects: Array[Dictionary] = [
-		{"effect_id": &"e1", "variant": "Verte"},
-		{"effect_id": &"e2", "variant": ""},
-	]
-	var original := DroneProfile.create("RoundTrip", 1, &"nac2", effects, 100)
+func test_constraint_from_dict_legacy_migration_effects() -> void:
+	var d := {
+		"id": "legacy1",
+		"name": "OldProfile",
+		"drone_type": 0,
+		"nacelle_id": "nac1",
+		"effects": [{"effect_id": "e1", "variant": "Verte"}],
+		"quantity": 100,
+	}
+	var p := DroneConstraint.from_dict(d)
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.PYRO_EFFECT)
+	assert_eq(p.value, "e1::Verte")
+	assert_eq(p.quantity, 100)
+
+
+func test_constraint_from_dict_legacy_migration_nacelle() -> void:
+	var d := {
+		"id": "legacy2",
+		"name": "OldNacelle",
+		"drone_type": 1,
+		"nacelle_id": "nacelle_lasermount",
+		"effects": [],
+		"quantity": 50,
+	}
+	var p := DroneConstraint.from_dict(d)
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.NACELLE)
+	assert_eq(p.value, "nacelle_lasermount")
+
+
+func test_constraint_from_dict_legacy_migration_drone_type() -> void:
+	var d := {
+		"id": "legacy3",
+		"name": "OldType",
+		"drone_type": 1,
+		"effects": [],
+		"quantity": 50,
+	}
+	var p := DroneConstraint.from_dict(d)
+	assert_eq(p.category, DroneConstraint.ConstraintCategory.DRONE_TYPE)
+	assert_eq(p.value, "1")
+
+
+func test_constraint_roundtrip() -> void:
+	var original := DroneConstraint.create("RoundTrip", DroneConstraint.ConstraintCategory.PYRO_EFFECT, "e1::Verte", 100)
 	var d := original.to_dict()
-	var restored := DroneProfile.from_dict(d)
+	var restored := DroneConstraint.from_dict(d)
 	assert_eq(restored.name, original.name)
-	assert_eq(restored.drone_type, original.drone_type)
-	assert_eq(str(restored.nacelle_id), str(original.nacelle_id))
+	assert_eq(restored.category, original.category)
+	assert_eq(restored.value, original.value)
 	assert_eq(restored.quantity, original.quantity)
-	assert_eq(restored.effects.size(), original.effects.size())
 	assert_eq(str(restored.id), str(original.id))
+
+
+func test_constraint_resolve_implications_drone_type() -> void:
+	var p := DroneConstraint.create("Riff", DroneConstraint.ConstraintCategory.DRONE_TYPE, "0", 10)
+	var result := p.resolve_implications([], [])
+	assert_eq(result["implied_drone_types"], [0])
+	assert_true(result["type_resolved"])
+	assert_eq(result["implied_drone_type_labels"], ["RIFF"])
+
+
+func test_constraint_resolve_implications_nacelle() -> void:
+	var nacelles := [
+		{"id": "nacelle_pyrolight", "name": "PyroLight", "compatible_drone_types": [0]},
+	]
+	var p := DroneConstraint.create("PyroNacelle", DroneConstraint.ConstraintCategory.NACELLE, "nacelle_pyrolight", 10)
+	var result := p.resolve_implications(nacelles, [])
+	assert_eq(result["implied_nacelle_ids"], ["nacelle_pyrolight"])
+	assert_true(result["nacelle_resolved"])
+	assert_eq(result["implied_drone_types"], [0])
+	assert_true(result["type_resolved"])
+	assert_eq(result["implied_drone_type_labels"], ["RIFF"])
+
+
+func test_constraint_resolve_implications_nacelle_multiple_types() -> void:
+	var nacelles := [
+		{"id": "nacelle_standard", "name": "Standard", "compatible_drone_types": [0, 1]},
+	]
+	var p := DroneConstraint.create("Std", DroneConstraint.ConstraintCategory.NACELLE, "nacelle_standard", 10)
+	var result := p.resolve_implications(nacelles, [])
+	assert_false(result["type_resolved"])
+	assert_eq(result["implied_drone_types"].size(), 2)
+
+
+func test_constraint_resolve_implications_pyro_effect() -> void:
+	var nacelles := [
+		{"id": "nacelle_pyrolight", "name": "PyroLight", "compatible_drone_types": [0]},
+		{"id": "nacelle_standard", "name": "Standard", "compatible_drone_types": [0, 1]},
+	]
+	var effects := [
+		{"id": "effect_pyro", "name": "Feu pyro", "category": 0, "compatible_nacelle_ids": ["nacelle_pyrolight", "nacelle_standard"], "variants": ["Bengale verte"]},
+	]
+	var p := DroneConstraint.create("Bengale", DroneConstraint.ConstraintCategory.PYRO_EFFECT, "effect_pyro::Bengale verte", 10)
+	var result := p.resolve_implications(nacelles, effects)
+	assert_eq(result["implied_nacelle_ids"].size(), 2)
+	assert_false(result["nacelle_resolved"])
+	assert_true(result["implied_drone_types"].has(0))
+
+
+func test_constraint_resolve_implications_payload_empty() -> void:
+	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_laser", 10)
+	var result := p.resolve_implications([], [])
+	assert_eq(result["implied_nacelle_ids"].size(), 0)
+	assert_eq(result["implied_drone_types"].size(), 0)
+	assert_false(result["type_resolved"])

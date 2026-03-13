@@ -1,6 +1,7 @@
-[gd_scene format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://features/fleet/fleet_panel.gd" id="1"]
+[ext_resource type="Script" path="res://ui/components/composition_bar.gd" id="2"]
 
 [sub_resource type="StyleBoxFlat" id="panel_bg"]
 content_margin_left = 8.0
@@ -35,19 +36,6 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="StyleBoxFlat" id="bar_bg_style"]
-bg_color = Color(0.55, 0.35, 0.35, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
-
-[sub_resource type="StyleBoxFlat" id="bar_fill_style"]
-bg_color = Color(0.29, 0.56, 0.85, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_right = 3
-corner_radius_bottom_left = 3
 
 [node name="FleetPanel" type="PanelContainer"]
 custom_minimum_size = Vector2(250, 0)
@@ -92,22 +80,18 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Total : 0 drones"
 
-[node name="RiffEmoBar" type="ProgressBar" parent="FleetContent/CompositionSummary"]
+[node name="RiffEmoBar" type="Control" parent="FleetContent/CompositionSummary"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(0, 12)
-theme_override_styles/background = SubResource("bar_bg_style")
-theme_override_styles/fill = SubResource("bar_fill_style")
-max_value = 100.0
-value = 0.0
-show_percentage = false
+script = ExtResource("2")
 
 [node name="AllocLabel" type="Label" parent="FleetContent/CompositionSummary"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Alloués : 0 / 0"
 
-[node name="ProfileList" type="VBoxContainer" parent="FleetContent/CompositionSummary"]
+[node name="ConstraintList" type="VBoxContainer" parent="FleetContent/CompositionSummary"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 4

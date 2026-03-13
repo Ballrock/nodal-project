@@ -71,6 +71,8 @@ func _declare_defaults() -> void:
 	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")
 	# Catalogue global : effets (JSON)
 	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "Composition", "Catalogue effets", "Définitions des effets disponibles")
+	# Catalogue global : payloads (JSON)
+	declare_setting("composition/payloads", SettingType.JSON, _default_payloads(), SettingScope.GLOBAL, "Composition", "Catalogue payloads", "Types de payloads disponibles")
 	
 	# --- Paramètres PROJET (Scénographie) ---
 	declare_setting("scenography/name", SettingType.STRING, "Ma Scénographie", SettingScope.PROJECT, "Général", "Nom de la scénographie", "Le nom identifiant ce projet")
@@ -78,7 +80,7 @@ func _declare_defaults() -> void:
 	
 	# Composition projet
 	declare_setting("composition/total_drones", SettingType.NUMBER, 0.0, SettingScope.PROJECT, "Composition", "Total drones", "Nombre total de drones déclaré")
-	declare_setting("composition/profiles", SettingType.JSON, [], SettingScope.PROJECT, "Composition", "Profils de drones", "Liste des profils de drones (JSON)")
+	declare_setting("composition/constraints", SettingType.JSON, [], SettingScope.PROJECT, "Composition", "Contraintes de drones", "Liste des contraintes de drones (JSON)")
 	
 	# Paramètres techniques (Global)
 	declare_setting("canvas/grid_visible", SettingType.BOOLEAN, true, SettingScope.GLOBAL, "Canvas", "Grille visible")
@@ -99,6 +101,14 @@ static func _default_effects() -> Array:
 		{"id": "effect_smoke", "name": "Fumée", "category": 1, "compatible_nacelle_ids": ["nacelle_pyrolight", "nacelle_standard"], "variants": ["Blanche", "Colorée"]},
 		{"id": "effect_strobe", "name": "Stroboscopique", "category": 2, "compatible_nacelle_ids": ["nacelle_standard", "nacelle_lasermount"], "variants": []},
 		{"id": "effect_laser", "name": "Laser", "category": 3, "compatible_nacelle_ids": ["nacelle_lasermount"], "variants": ["RGB", "Vert", "Rouge"]},
+	]
+
+
+static func _default_payloads() -> Array:
+	return [
+		{"id": "payload_laser", "name": "Laser"},
+		{"id": "payload_smoke", "name": "Smoke"},
+		{"id": "payload_strobe", "name": "Strobe"},
 	]
 
 func declare_setting(key: String, type: SettingType, default_value: Variant, scope: SettingScope = SettingScope.GLOBAL, category: String = "Général", label: String = "", description: String = "") -> void:

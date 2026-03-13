@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://features/fleet/profile_dialog.gd" id="1"]
+[ext_resource type="Script" path="res://features/fleet/constraint_dialog.gd" id="1"]
 
 [sub_resource type="StyleBoxFlat" id="dialog_panel_style"]
 content_margin_left = 24.0
@@ -47,11 +47,11 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="ProfileDialog" type="Window"]
-title = "Profil de drones"
+[node name="ConstraintDialog" type="Window"]
+title = "Contrainte de drones"
 initial_position = 2
-size = Vector2i(500, 550)
-min_size = Vector2i(450, 400)
+size = Vector2i(500, 450)
+min_size = Vector2i(400, 350)
 wrap_controls = true
 transient = true
 exclusive = true
@@ -71,12 +71,12 @@ theme_override_constants/separation = 14
 
 [node name="NameLabel" type="Label" parent="PanelContainer/VBox"]
 layout_mode = 2
-text = "Nom du profil"
+text = "Nom de la contrainte"
 
-[node name="ProfileNameEdit" type="LineEdit" parent="PanelContainer/VBox"]
+[node name="ConstraintNameEdit" type="LineEdit" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "Ex: Bengales vertes"
+placeholder_text = "Ex: Mes Lasers RGB"
 
 [node name="QuantityRow" type="HBoxContainer" parent="PanelContainer/VBox"]
 layout_mode = 2
@@ -95,36 +95,35 @@ max_value = 99999.0
 step = 1.0
 value = 1.0
 
-[node name="TypeLabel" type="Label" parent="PanelContainer/VBox"]
+[node name="CategoryLabel" type="Label" parent="PanelContainer/VBox"]
 layout_mode = 2
-text = "Type de drone"
+text = "Catégorie"
 
-[node name="DroneTypeOption" type="OptionButton" parent="PanelContainer/VBox"]
+[node name="CategoryOption" type="OptionButton" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="NacelleLabel" type="Label" parent="PanelContainer/VBox"]
+[node name="ValueLabel" type="Label" parent="PanelContainer/VBox"]
 layout_mode = 2
-text = "Nacelle"
+text = "Valeur"
 
-[node name="NacelleOption" type="OptionButton" parent="PanelContainer/VBox"]
+[node name="ValueOption" type="OptionButton" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="EffectsLabel" type="Label" parent="PanelContainer/VBox"]
+[node name="ImplicationsSep" type="HSeparator" parent="PanelContainer/VBox"]
 layout_mode = 2
-text = "Effets compatibles"
+theme_override_colors/separator_color = Color(0.3, 0.3, 0.35, 1)
 
-[node name="EffectsScroll" type="ScrollContainer" parent="PanelContainer/VBox"]
+[node name="ImplicationsLabel" type="Label" parent="PanelContainer/VBox"]
 layout_mode = 2
-size_flags_vertical = 3
-custom_minimum_size = Vector2(0, 100)
+text = "Implique"
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 
-[node name="EffectsContainer" type="VBoxContainer" parent="PanelContainer/VBox/EffectsScroll"]
+[node name="ImplicationsContainer" type="VBoxContainer" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 
 [node name="Sep" type="HSeparator" parent="PanelContainer/VBox"]
 layout_mode = 2
@@ -135,7 +134,7 @@ layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 12
 
-[node name="ProfileDeleteBtn" type="Button" parent="PanelContainer/VBox/ButtonsRow"]
+[node name="ConstraintDeleteBtn" type="Button" parent="PanelContainer/VBox/ButtonsRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/normal = SubResource("btn_delete_style")
@@ -145,13 +144,13 @@ text = "Supprimer"
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ProfileCancelBtn" type="Button" parent="PanelContainer/VBox/ButtonsRow"]
+[node name="ConstraintCancelBtn" type="Button" parent="PanelContainer/VBox/ButtonsRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/normal = SubResource("btn_cancel_style")
 text = "Annuler"
 
-[node name="ProfileValidateBtn" type="Button" parent="PanelContainer/VBox/ButtonsRow"]
+[node name="ConstraintValidateBtn" type="Button" parent="PanelContainer/VBox/ButtonsRow"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_styles/normal = SubResource("btn_validate_style")
