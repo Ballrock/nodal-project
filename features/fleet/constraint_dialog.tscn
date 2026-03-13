@@ -51,7 +51,7 @@ corner_radius_bottom_left = 4
 title = "Contrainte de drones"
 initial_position = 2
 size = Vector2i(500, 450)
-min_size = Vector2i(400, 350)
+min_size = Vector2i(400, 500)
 wrap_controls = true
 transient = true
 exclusive = true
@@ -110,6 +110,25 @@ text = "Valeur"
 [node name="ValueOption" type="OptionButton" parent="PanelContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="PyroEffectContainer" type="VBoxContainer" parent="PanelContainer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
+
+[node name="EffectSearchEdit" type="LineEdit" parent="PanelContainer/VBox/PyroEffectContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Rechercher un effet..."
+clear_button_enabled = true
+
+[node name="EffectTree" type="Tree" parent="PanelContainer/VBox/PyroEffectContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 200)
+hide_root = true
+select_mode = 0
 
 [node name="ImplicationsSep" type="HSeparator" parent="PanelContainer/VBox"]
 layout_mode = 2

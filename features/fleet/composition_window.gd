@@ -287,7 +287,10 @@ func _get_effects_catalog() -> Array:
 	var effects: Array = []
 	var raw = SettingsManager.get_setting("composition/effects")
 	if raw is Array:
-		effects = raw
+		effects.append_array(raw)
+	var pyro_raw = SettingsManager.get_setting("composition/pyro_effects")
+	if pyro_raw is Array:
+		effects.append_array(pyro_raw)
 	return effects
 
 

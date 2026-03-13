@@ -17,6 +17,12 @@ var _nacelle_download_btn: Button = null
 var _nacelle_list_container: VBoxContainer = null
 var _nacelle_count_label: Label = null
 var _nacelle_version_label: Label = null
+# References pour la page effets pyro (mise a jour dynamique)
+var _pyro_status_label: Label = null
+var _pyro_download_btn: Button = null
+var _pyro_list_container: VBoxContainer = null
+var _pyro_count_label: Label = null
+var _pyro_version_label: Label = null
 
 func _ready() -> void:
 	visible = false
@@ -51,6 +57,7 @@ func close() -> void:
 	hide()
 	_draft_settings.clear()
 	_disconnect_nacelle_signals()
+	_disconnect_pyro_signals()
 
 func _prepare_draft() -> void:
 	_draft_settings.clear()
@@ -86,12 +93,18 @@ func _on_category_selected() -> void:
 func _display_category(category: String) -> void:
 	category_title.text = category
 	_disconnect_nacelle_signals()
+	_disconnect_pyro_signals()
 	for child in options_container.get_children():
 		child.queue_free()
 
 	# Rendu personnalise pour la categorie Nacelles
 	if category == "Nacelles" and _current_scope == SettingsManager.SettingScope.GLOBAL:
 		_display_nacelles_category()
+		return
+
+	# Rendu personnalise pour la categorie Effets Pyro
+	if category == "Effets Pyro" and _current_scope == SettingsManager.SettingScope.GLOBAL:
+		_display_pyro_effects_category()
 		return
 
 	var settings = SettingsManager.get_settings_by_category_and_scope(category, _current_scope)
@@ -462,3 +475,277 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and visible:
 		close()
 		get_viewport().set_input_as_handled()
+
+
+# --- Affichage personnalise de la categorie Effets Pyro ---
+
+func _display_pyro_effects_category() -> void:
+	# Section : Informations et telechargement
+	var info_section := VBoxContainer.new()
+	info_section.add_theme_constant_override("separation", 10)
+	options_container.add_child(info_section)
+
+	# Derniere mise a jour
+	var last_dl_box := HBoxContainer.new()
+	info_section.add_child(last_dl_box)
+
+	var last_dl_label := Label.new()
+	last_dl_label.text = "Dernier telechargement :"
+	last_dl_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	last_dl_box.add_child(last_dl_label)
+
+	_pyro_status_label = Label.new()
+	_pyro_status_label.text = PyroEffectManager.get_last_download_date_formatted()
+	_pyro_status_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	last_dl_box.add_child(_pyro_status_label)
+
+	# Version du fichier
+	var version_box := HBoxContainer.new()
+	info_section.add_child(version_box)
+
+	var version_title := Label.new()
+	version_title.text = "Date du fichier :"
+	version_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	version_box.add_child(version_title)
+
+	_pyro_version_label = Label.new()
+	_pyro_version_label.text = PyroEffectManager.get_file_version_date()
+	_pyro_version_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	version_box.add_child(_pyro_version_label)
+
+	# Nombre d'effets
+	var count_box := HBoxContainer.new()
+	info_section.add_child(count_box)
+
+	var count_title := Label.new()
+	count_title.text = "Effets disponibles :"
+	count_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	count_box.add_child(count_title)
+
+	_pyro_count_label = Label.new()
+	_pyro_count_label.text = str(PyroEffectManager.get_pyro_effect_count())
+	_pyro_count_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	count_box.add_child(_pyro_count_label)
+
+	# Bouton Telecharger
+	var btn_box := HBoxContainer.new()
+	btn_box.alignment = BoxContainer.ALIGNMENT_END
+	info_section.add_child(btn_box)
+
+	_pyro_download_btn = Button.new()
+	_pyro_download_btn.text = "Telecharger la derniere version"
+	_pyro_download_btn.pressed.connect(_on_pyro_download_pressed)
+	if PyroEffectManager.is_downloading():
+		_pyro_download_btn.text = "Telechargement en cours..."
+		_pyro_download_btn.disabled = true
+	btn_box.add_child(_pyro_download_btn)
+
+	options_container.add_child(HSeparator.new())
+
+	# Section : Liste des effets
+	var list_header := Label.new()
+	list_header.text = "Liste des effets pyrotechniques"
+	list_header.add_theme_font_size_override("font_size", 16)
+	options_container.add_child(list_header)
+
+	_pyro_list_container = VBoxContainer.new()
+	_pyro_list_container.add_theme_constant_override("separation", 4)
+	options_container.add_child(_pyro_list_container)
+
+	_populate_pyro_effects_list()
+
+	# Connecter les signaux du PyroEffectManager
+	_connect_pyro_signals()
+
+
+func _populate_pyro_effects_list() -> void:
+	if not _pyro_list_container:
+		return
+	for child in _pyro_list_container.get_children():
+		child.queue_free()
+
+	var effects := PyroEffectManager.get_pyro_effects()
+
+	if effects.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "Aucun effet disponible. Cliquez sur \"Telecharger\" pour recuperer la liste."
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_pyro_list_container.add_child(empty_label)
+		return
+
+	# Grouper les effets par type
+	var groups: Dictionary = {}
+	for e: PyroEffectDefinition in effects:
+		var t := e.type.strip_edges()
+		if t.is_empty():
+			t = "Autre"
+		if not groups.has(t):
+			groups[t] = []
+		groups[t].append(e)
+
+	var sorted_types: Array = groups.keys()
+	sorted_types.sort()
+
+	for type_name: String in sorted_types:
+		# En-tete de groupe
+		var group_label := Label.new()
+		group_label.text = "%s (%d)" % [type_name, groups[type_name].size()]
+		group_label.add_theme_font_size_override("font_size", 14)
+		group_label.add_theme_color_override("font_color", Color(0.9, 0.65, 0.3))
+		_pyro_list_container.add_child(group_label)
+
+		for e: PyroEffectDefinition in groups[type_name]:
+			var row := _create_pyro_effect_row(e)
+			_pyro_list_container.add_child(row)
+			_pyro_list_container.add_child(HSeparator.new())
+
+
+func _create_pyro_effect_row(e: PyroEffectDefinition) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.18, 0.22, 0.8)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	panel.add_child(vbox)
+
+	# Ligne 1 : Nom + Fabricant
+	var line1 := HBoxContainer.new()
+	vbox.add_child(line1)
+
+	var name_label := Label.new()
+	name_label.text = e.name
+	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line1.add_child(name_label)
+
+	if not e.fabricant.is_empty():
+		var fab_label := Label.new()
+		fab_label.text = e.fabricant
+		fab_label.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
+		fab_label.add_theme_font_size_override("font_size", 12)
+		line1.add_child(fab_label)
+
+	# Ligne 2 : Caractéristiques principales
+	var details_parts: PackedStringArray = []
+	if not e.calibre.is_empty():
+		details_parts.append("Calibre: %s" % e.calibre)
+	if e.duree > 0.0:
+		details_parts.append("Durée: %.1fs" % e.duree)
+	if e.hauteur_effet > 0.0:
+		details_parts.append("Hauteur: %.0fm" % e.hauteur_effet)
+	if e.poids > 0.0:
+		details_parts.append("Poids: %.0fg" % e.poids)
+
+	if not details_parts.is_empty():
+		var details_label := Label.new()
+		details_label.text = " | ".join(details_parts)
+		details_label.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
+		details_label.add_theme_font_size_override("font_size", 12)
+		vbox.add_child(details_label)
+
+	# Section depliable : Informations techniques
+	var has_details := (e.distance_securite_verticale > 0.0 or e.distance_securite_horizontale > 0.0
+		or e.largeur_effet > 0.0 or not e.code_onu.is_empty()
+		or not e.categorie.is_empty() or not e.classe.is_empty())
+
+	if has_details:
+		var details_container := VBoxContainer.new()
+		details_container.add_theme_constant_override("separation", 2)
+		details_container.visible = false
+		vbox.add_child(details_container)
+
+		var toggle_btn := Button.new()
+		toggle_btn.text = "▶ Détails techniques"
+		toggle_btn.flat = true
+		toggle_btn.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+		toggle_btn.add_theme_font_size_override("font_size", 12)
+		toggle_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		vbox.add_child(toggle_btn)
+		vbox.move_child(toggle_btn, details_container.get_index())
+		vbox.move_child(details_container, toggle_btn.get_index() + 1)
+
+		toggle_btn.pressed.connect(func():
+			details_container.visible = not details_container.visible
+			toggle_btn.text = "▼ Détails techniques" if details_container.visible else "▶ Détails techniques"
+		)
+
+		var tech_parts: PackedStringArray = []
+		if e.distance_securite_verticale > 0.0:
+			tech_parts.append("Sécu. verticale: %.0fm" % e.distance_securite_verticale)
+		if e.distance_securite_horizontale > 0.0:
+			tech_parts.append("Sécu. horizontale: %.0fm" % e.distance_securite_horizontale)
+		if e.largeur_effet > 0.0:
+			tech_parts.append("Largeur effet: %.0fm" % e.largeur_effet)
+		if not e.code_onu.is_empty():
+			tech_parts.append("Code ONU: %s" % e.code_onu)
+		if not e.categorie.is_empty():
+			tech_parts.append("Catégorie: %s" % e.categorie)
+		if not e.classe.is_empty():
+			tech_parts.append("Classe: %s" % e.classe)
+
+		for part in tech_parts:
+			var tech_label := Label.new()
+			tech_label.text = "  • " + part
+			tech_label.add_theme_color_override("font_color", Color(0.55, 0.6, 0.65))
+			tech_label.add_theme_font_size_override("font_size", 12)
+			details_container.add_child(tech_label)
+
+	return panel
+
+
+func _on_pyro_download_pressed() -> void:
+	if _pyro_download_btn:
+		_pyro_download_btn.text = "Telechargement en cours..."
+		_pyro_download_btn.disabled = true
+	PyroEffectManager.download_pyro_effects()
+
+
+func _connect_pyro_signals() -> void:
+	if not PyroEffectManager.pyro_effects_loaded.is_connected(_on_pyro_effects_updated):
+		PyroEffectManager.pyro_effects_loaded.connect(_on_pyro_effects_updated)
+	if not PyroEffectManager.pyro_effects_download_failed.is_connected(_on_pyro_download_failed):
+		PyroEffectManager.pyro_effects_download_failed.connect(_on_pyro_download_failed)
+	if not PyroEffectManager.download_finished.is_connected(_on_pyro_download_finished):
+		PyroEffectManager.download_finished.connect(_on_pyro_download_finished)
+
+
+func _disconnect_pyro_signals() -> void:
+	if PyroEffectManager.pyro_effects_loaded.is_connected(_on_pyro_effects_updated):
+		PyroEffectManager.pyro_effects_loaded.disconnect(_on_pyro_effects_updated)
+	if PyroEffectManager.pyro_effects_download_failed.is_connected(_on_pyro_download_failed):
+		PyroEffectManager.pyro_effects_download_failed.disconnect(_on_pyro_download_failed)
+	if PyroEffectManager.download_finished.is_connected(_on_pyro_download_finished):
+		PyroEffectManager.download_finished.disconnect(_on_pyro_download_finished)
+
+
+func _on_pyro_effects_updated() -> void:
+	if _pyro_status_label:
+		_pyro_status_label.text = PyroEffectManager.get_last_download_date_formatted()
+	if _pyro_version_label:
+		_pyro_version_label.text = PyroEffectManager.get_file_version_date()
+	if _pyro_count_label:
+		_pyro_count_label.text = str(PyroEffectManager.get_pyro_effect_count())
+	_populate_pyro_effects_list()
+
+
+func _on_pyro_download_failed(error_msg: String) -> void:
+	if _pyro_status_label:
+		_pyro_status_label.text = "Erreur: %s" % error_msg
+		_pyro_status_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+
+
+func _on_pyro_download_finished() -> void:
+	if _pyro_download_btn:
+		_pyro_download_btn.text = "Telecharger la derniere version"
+		_pyro_download_btn.disabled = false

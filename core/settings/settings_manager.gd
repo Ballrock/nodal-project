@@ -67,7 +67,12 @@ func _declare_defaults() -> void:
 	declare_setting("nacelles/timestamp", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Nacelles", "Version du fichier", "Timestamp de la version du fichier nacelles")
 	declare_setting("nacelles/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Nacelles", "Dernier telechargement", "Date du dernier telechargement des nacelles")
 	declare_setting("nacelles/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Nacelles", "Nombre de nacelles", "Nombre de nacelles disponibles")
-	
+	declare_setting("pyro_effects/file_version_date", SettingType.STRING, "", SettingScope.GLOBAL, "Effets Pyro", "Date version fichier", "Date de creation/mise a jour du fichier sur le serveur")
+	declare_setting("pyro_effects/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Effets Pyro", "Dernier telechargement", "Date du dernier telechargement des effets pyro")
+	declare_setting("pyro_effects/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Effets Pyro", "Nombre d'effets pyro", "Nombre d'effets pyro disponibles")
+	declare_setting("pyro_effects/types", SettingType.JSON, [], SettingScope.GLOBAL, "Effets Pyro", "Types d'effets", "Liste des types d'effets uniques")
+	declare_setting("composition/pyro_effects", SettingType.JSON, [], SettingScope.GLOBAL, "Composition", "Catalogue effets pyro", "Definitions des effets pyro telecharges")
+
 	# Catalogue global : nacelles (JSON)
 	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")
 	# Catalogue global : effets (JSON)
