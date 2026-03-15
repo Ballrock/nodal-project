@@ -34,23 +34,130 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Build prompt from event
-        id: prompt
+      - name: Gather context and build prompt
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            BODY="${{ github.event.comment.body }}"
-          elif [[ "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
-            BODY="${{ github.event.comment.body }}"
-          elif [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
-            BODY="${{ github.event.review.body }}"
-          elif [[ "${{ github.event_name }}" == "issues" ]]; then
-            BODY="${{ github.event.issue.title }} — ${{ github.event.issue.body }}"
+          REPO="${{ github.repository }}"
+          EVENT="${{ github.event_name }}"
+          CONTEXT=""
+          USER_REQUEST=""
+
+          # --- Extract user request ---
+          if [[ "$EVENT" == "issue_comment" ]]; then
+            USER_REQUEST=$(echo '${{ toJSON(github.event.comment.body) }}' | jq -r '.' | sed 's/@claude//g')
+            # Determine if the comment is on a PR or an issue
+            PR_URL="${{ github.event.issue.pull_request.url }}"
+            if [[ -n "$PR_URL" && "$PR_URL" != "null" ]]; then
+              PR_NUMBER="${{ github.event.issue.number }}"
+            else
+              ISSUE_NUMBER="${{ github.event.issue.number }}"
+            fi
+
+          elif [[ "$EVENT" == "pull_request_review_comment" ]]; then
+            USER_REQUEST=$(echo '${{ toJSON(github.event.comment.body) }}' | jq -r '.' | sed 's/@claude//g')
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            # Include the specific file and line context for review comments
+            COMMENT_PATH="${{ github.event.comment.path }}"
+            COMMENT_LINE="${{ github.event.comment.original_line }}"
+            COMMENT_DIFF="${{ github.event.comment.diff_hunk }}"
+
+          elif [[ "$EVENT" == "pull_request_review" ]]; then
+            USER_REQUEST=$(echo '${{ toJSON(github.event.review.body) }}' | jq -r '.' | sed 's/@claude//g')
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          elif [[ "$EVENT" == "issues" ]]; then
+            USER_REQUEST="${{ github.event.issue.title }} — $(echo '${{ toJSON(github.event.issue.body) }}' | jq -r '.' | sed 's/@claude//g')"
+            ISSUE_NUMBER="${{ github.event.issue.number }}"
           fi
-          # Remove @claude mention from the prompt
-          PROMPT=$(echo "$BODY" | sed 's/@claude//g' | xargs)
-          echo "prompt<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$PROMPT" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # --- Gather PR context if applicable ---
+          if [[ -n "${PR_NUMBER:-}" ]]; then
+            echo "Fetching PR #${PR_NUMBER} details..."
+
+            PR_JSON=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title,body,headRefName,baseRefName,files,url)
+            PR_TITLE=$(echo "$PR_JSON" | jq -r '.title')
+            PR_BODY=$(echo "$PR_JSON" | jq -r '.body // "No description"')
+            PR_HEAD=$(echo "$PR_JSON" | jq -r '.headRefName')
+            PR_BASE=$(echo "$PR_JSON" | jq -r '.baseRefName')
+            PR_URL_LINK=$(echo "$PR_JSON" | jq -r '.url')
+            PR_FILES=$(echo "$PR_JSON" | jq -r '.files[].path' | head -50)
+
+            # Get the diff (limited to avoid overly large prompts)
+            PR_DIFF=$(gh pr diff "$PR_NUMBER" --repo "$REPO" | head -500)
+
+            CONTEXT="## Context: Pull Request #${PR_NUMBER}
+          **URL:** ${PR_URL_LINK}
+          **Title:** ${PR_TITLE}
+          **Branch:** ${PR_HEAD} → ${PR_BASE}
+
+          ### PR Description:
+          ${PR_BODY}
+
+          ### Changed files:
+          ${PR_FILES}
+
+          ### Diff (truncated):
+          \`\`\`diff
+          ${PR_DIFF}
+          \`\`\`
+
+          ### Instructions:
+          - Work on branch \`${PR_HEAD}\` of repository \`${REPO}\`
+          - Push your commits to branch \`${PR_HEAD}\`
+          - Comment on the PR with your results if needed"
+
+            # For review comments, add file-specific context
+            if [[ -n "${COMMENT_PATH:-}" ]]; then
+              CONTEXT="${CONTEXT}
+
+          ### Review comment location:
+          - **File:** ${COMMENT_PATH}
+          - **Line:** ${COMMENT_LINE}
+          - **Diff hunk:**
+          \`\`\`diff
+          ${COMMENT_DIFF}
+          \`\`\`"
+            fi
+
+          # --- Gather Issue context if applicable ---
+          elif [[ -n "${ISSUE_NUMBER:-}" ]]; then
+            echo "Fetching Issue #${ISSUE_NUMBER} details..."
+
+            ISSUE_JSON=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title,body,url,labels)
+            ISSUE_TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+            ISSUE_BODY=$(echo "$ISSUE_JSON" | jq -r '.body // "No description"')
+            ISSUE_URL=$(echo "$ISSUE_JSON" | jq -r '.url')
+            ISSUE_LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name' | paste -sd ', ')
+
+            CONTEXT="## Context: Issue #${ISSUE_NUMBER}
+          **URL:** ${ISSUE_URL}
+          **Title:** ${ISSUE_TITLE}
+          **Labels:** ${ISSUE_LABELS:-none}
+
+          ### Issue Description:
+          ${ISSUE_BODY}
+
+          ### Instructions:
+          - Create a new branch from \`main\` for your changes
+          - Push your commits and create a PR referencing this issue"
+          fi
+
+          # --- Assemble final prompt ---
+          FULL_PROMPT="You are working on the repository: ${REPO} (https://github.com/${REPO})
+
+          ${CONTEXT}
+
+          ## User Request:
+          ${USER_REQUEST}"
+
+          # Write prompt to file to avoid shell escaping issues
+          echo "$FULL_PROMPT" > /tmp/claude-prompt.txt
+
+          echo "prompt_file=/tmp/claude-prompt.txt" >> "$GITHUB_OUTPUT"
+          echo "pr_number=${PR_NUMBER:-}" >> "$GITHUB_OUTPUT"
+          echo "issue_number=${ISSUE_NUMBER:-}" >> "$GITHUB_OUTPUT"
 
       - name: Launch Claude --remote
         env:
@@ -60,12 +167,16 @@ jobs:
           echo "::group::Launching Claude remote session"
           echo "Repository: ${{ github.repository }}"
           echo "Event: ${{ github.event_name }}"
-          echo "Prompt: ${{ steps.prompt.outputs.prompt }}"
+
+          PROMPT=$(cat "${{ steps.context.outputs.prompt_file }}")
+          echo "--- Prompt sent to Claude ---"
+          echo "$PROMPT"
+          echo "---"
 
           # Launch Claude in remote mode — returns immediately with a session ID
           # Claude continues working in Anthropic's cloud
           claude --remote \
-            -p "${{ steps.prompt.outputs.prompt }}" \
+            -p "$PROMPT" \
             2>&1 | tee /tmp/claude-output.log
 
           echo "::endgroup::"
@@ -73,7 +184,12 @@ jobs:
           # Log session info for traceability
           echo "## Claude Remote Session" >> "$GITHUB_STEP_SUMMARY"
           echo "Claude is working on this task in the cloud." >> "$GITHUB_STEP_SUMMARY"
-          echo "Track progress at https://claude.ai/code" >> "$GITHUB_STEP_SUMMARY"
+          echo "Track progress at [claude.ai/code](https://claude.ai/code)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**Event:** ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Prompt:** ${{ steps.prompt.outputs.prompt }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${{ steps.context.outputs.pr_number }}" ]]; then
+            echo "**PR:** #${{ steps.context.outputs.pr_number }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -n "${{ steps.context.outputs.issue_number }}" ]]; then
+            echo "**Issue:** #${{ steps.context.outputs.issue_number }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
