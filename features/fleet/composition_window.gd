@@ -40,7 +40,7 @@ func _ready() -> void:
 func open() -> void:
 	_load_draft()
 	_refresh()
-	popup_centered()
+	WindowHelper.popup_fitted(self, 0.85, false)
 
 
 func _close() -> void:
@@ -160,6 +160,7 @@ func _create_constraint_row(constraint: DroneConstraint, index: int, nacelles_ca
 	var value_display := constraint.get_value_display_label(nacelles_catalog, effects_catalog)
 	var cat_label := Label.new()
 	cat_label.text = "%s: %s" % [constraint.get_category_label(), value_display]
+	cat_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cat_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	cat_label.add_theme_font_size_override("font_size", 12)
 	info_vbox.add_child(cat_label)

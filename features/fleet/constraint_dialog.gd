@@ -116,7 +116,7 @@ func open_edit(constraint: DroneConstraint) -> void:
 
 
 func _show_dialog() -> void:
-	popup_centered()
+	WindowHelper.popup_fitted(self)
 	_name_edit.grab_focus()
 
 
@@ -259,6 +259,7 @@ func _update_implications() -> void:
 			else:
 				nacelle_label.text = "↳ Nacelle : %s  ⚠ %d options" % [" / ".join(nacelle_names), nacelle_names.size()]
 				nacelle_label.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+			nacelle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			nacelle_label.add_theme_font_size_override("font_size", 12)
 			_implications_container.add_child(nacelle_label)
 
@@ -274,6 +275,7 @@ func _update_implications() -> void:
 			else:
 				type_label.text = "↳ Type drone : %s  ⚠ %d options" % [" / ".join(type_labels), type_labels.size()]
 				type_label.add_theme_color_override("font_color", Color(0.9, 0.75, 0.3))
+			type_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			type_label.add_theme_font_size_override("font_size", 12)
 			_implications_container.add_child(type_label)
 
@@ -281,6 +283,7 @@ func _update_implications() -> void:
 	if cat == DroneConstraint.ConstraintCategory.PAYLOAD:
 		var info_label := Label.new()
 		info_label.text = "Aucune implication déduite (extensible)"
+		info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		info_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 		info_label.add_theme_font_size_override("font_size", 12)
 		_implications_container.add_child(info_label)

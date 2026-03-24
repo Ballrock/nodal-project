@@ -11,7 +11,7 @@ signal closed
 func _ready() -> void:
 	close_requested.connect(close)
 	# Les fenêtres modales centrent au départ
-	popup_centered()
+	WindowHelper.popup_fitted(self)
 
 func setup(p_title: String) -> void:
 	title = p_title

@@ -44,14 +44,14 @@ func open_global() -> void:
 	title = "Paramètres Logiciel"
 	_prepare_draft()
 	_refresh()
-	popup_centered()
+	WindowHelper.popup_fitted(self, 0.85, false)
 
 func open_project() -> void:
 	_current_scope = SettingsManager.SettingScope.PROJECT
 	title = "Paramètres Scénographie"
 	_prepare_draft()
 	_refresh()
-	popup_centered()
+	WindowHelper.popup_fitted(self, 0.85, false)
 
 func close() -> void:
 	hide()
@@ -67,22 +67,46 @@ func _prepare_draft() -> void:
 
 func _refresh() -> void:
 	_build_category_tree()
-	var root = category_tree.get_root()
-	if root and root.get_child_count() > 0:
-		root.get_child(0).select(0)
+	var first = _find_first_selectable()
+	if first:
+		first.select(0)
 	else:
 		for child in options_container.get_children():
 			child.queue_free()
 		category_title.text = ""
 
+func _find_first_selectable() -> TreeItem:
+	var root = category_tree.get_root()
+	if not root:
+		return null
+	var l1 = root.get_first_child()
+	while l1:
+		if l1.is_selectable(0):
+			return l1
+		var l2 = l1.get_first_child()
+		if l2:
+			return l2
+		l1 = l1.get_next()
+	return null
+
 func _build_category_tree() -> void:
 	category_tree.clear()
 	var root = category_tree.create_item()
-	var categories = SettingsManager.get_categories_for_scope(_current_scope)
-	for cat in categories:
-		var item = category_tree.create_item(root)
-		item.set_text(0, cat)
-		item.set_metadata(0, cat)
+	var tree = SettingsManager.get_category_tree_for_scope(_current_scope)
+	for entry in tree:
+		var l1_item = category_tree.create_item(root)
+		l1_item.set_text(0, entry["name"])
+		if entry["children"].size() > 0:
+			# Parent non-sélectionnable avec enfants
+			l1_item.set_selectable(0, false)
+			l1_item.set_custom_color(0, Color(0.85, 0.85, 0.85))
+			for child_name: String in entry["children"]:
+				var l2_item = category_tree.create_item(l1_item)
+				l2_item.set_text(0, child_name)
+				l2_item.set_metadata(0, entry["name"] + "/" + child_name)
+		else:
+			# Catégorie plate (pas d'enfants) — sélectionnable directement
+			l1_item.set_metadata(0, entry["name"])
 
 func _on_category_selected() -> void:
 	var selected = category_tree.get_selected()
@@ -91,19 +115,25 @@ func _on_category_selected() -> void:
 		_display_category(cat)
 
 func _display_category(category: String) -> void:
-	category_title.text = category
+	# Afficher le nom court (partie après "/") comme titre
+	var display_name := category
+	var slash_pos := category.rfind("/")
+	if slash_pos >= 0:
+		display_name = category.substr(slash_pos + 1)
+	category_title.text = display_name
+
 	_disconnect_nacelle_signals()
 	_disconnect_pyro_signals()
 	for child in options_container.get_children():
 		child.queue_free()
 
 	# Rendu personnalise pour la categorie Nacelles
-	if category == "Nacelles" and _current_scope == SettingsManager.SettingScope.GLOBAL:
+	if category == "Base de données/Nacelles" and _current_scope == SettingsManager.SettingScope.GLOBAL:
 		_display_nacelles_category()
 		return
 
 	# Rendu personnalise pour la categorie Effets Pyro
-	if category == "Effets Pyro" and _current_scope == SettingsManager.SettingScope.GLOBAL:
+	if category == "Base de données/Effets" and _current_scope == SettingsManager.SettingScope.GLOBAL:
 		_display_pyro_effects_category()
 		return
 
@@ -171,6 +201,7 @@ func _add_setting_ui(setting: SettingsManager.Setting) -> void:
 	if setting.description != "":
 		var desc_label = Label.new()
 		desc_label.text = setting.description
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		v_box.add_child(desc_label)
 

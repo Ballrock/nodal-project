@@ -63,23 +63,23 @@ func _ready() -> void:
 
 func _declare_defaults() -> void:
 	# --- Paramètres GLOBAUX ---
-	declare_setting("application/language", SettingType.STRING, "fr", SettingScope.GLOBAL, "Logiciel", "Langue", "Code de langue de l'interface (ex: fr, en)")
-	declare_setting("nacelles/timestamp", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Nacelles", "Version du fichier", "Timestamp de la version du fichier nacelles")
-	declare_setting("nacelles/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Nacelles", "Dernier telechargement", "Date du dernier telechargement des nacelles")
-	declare_setting("nacelles/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Nacelles", "Nombre de nacelles", "Nombre de nacelles disponibles")
-	declare_setting("pyro_effects/file_version_date", SettingType.STRING, "", SettingScope.GLOBAL, "Effets Pyro", "Date version fichier", "Date de creation/mise a jour du fichier sur le serveur")
-	declare_setting("pyro_effects/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Effets Pyro", "Dernier telechargement", "Date du dernier telechargement des effets pyro")
-	declare_setting("pyro_effects/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Effets Pyro", "Nombre d'effets pyro", "Nombre d'effets pyro disponibles")
-	declare_setting("pyro_effects/types", SettingType.JSON, [], SettingScope.GLOBAL, "Effets Pyro", "Types d'effets", "Liste des types d'effets uniques")
-	declare_setting("composition/pyro_effects", SettingType.JSON, [], SettingScope.GLOBAL, "Composition", "Catalogue effets pyro", "Definitions des effets pyro telecharges")
+	declare_setting("application/language", SettingType.STRING, "fr", SettingScope.GLOBAL, "Général/Logiciel", "Langue", "Code de langue de l'interface (ex: fr, en)")
+	declare_setting("nacelles/timestamp", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Base de données/Nacelles", "Version du fichier", "Timestamp de la version du fichier nacelles")
+	declare_setting("nacelles/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Base de données/Nacelles", "Dernier telechargement", "Date du dernier telechargement des nacelles")
+	declare_setting("nacelles/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Base de données/Nacelles", "Nombre de nacelles", "Nombre de nacelles disponibles")
+	declare_setting("pyro_effects/file_version_date", SettingType.STRING, "", SettingScope.GLOBAL, "Base de données/Effets", "Date version fichier", "Date de creation/mise a jour du fichier sur le serveur")
+	declare_setting("pyro_effects/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Base de données/Effets", "Dernier telechargement", "Date du dernier telechargement des effets pyro")
+	declare_setting("pyro_effects/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Base de données/Effets", "Nombre d'effets pyro", "Nombre d'effets pyro disponibles")
+	declare_setting("pyro_effects/types", SettingType.JSON, [], SettingScope.GLOBAL, "Base de données/Effets", "Types d'effets", "Liste des types d'effets uniques")
+	declare_setting("composition/pyro_effects", SettingType.JSON, [], SettingScope.GLOBAL, "Général/Composition", "Catalogue effets pyro", "Definitions des effets pyro telecharges")
 
 	# Catalogue global : nacelles (JSON)
-	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")
+	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Général/Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")
 	# Catalogue global : effets (JSON)
-	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "Composition", "Catalogue effets", "Définitions des effets disponibles")
+	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "Général/Composition", "Catalogue effets", "Définitions des effets disponibles")
 	# Catalogue global : payloads (JSON)
-	declare_setting("composition/payloads", SettingType.JSON, _default_payloads(), SettingScope.GLOBAL, "Composition", "Catalogue payloads", "Types de payloads disponibles")
-	
+	declare_setting("composition/payloads", SettingType.JSON, _default_payloads(), SettingScope.GLOBAL, "Général/Composition", "Catalogue payloads", "Types de payloads disponibles")
+
 	# --- Paramètres PROJET (Scénographie) ---
 	declare_setting("scenography/name", SettingType.STRING, "Ma Scénographie", SettingScope.PROJECT, "Général", "Nom de la scénographie", "Le nom identifiant ce projet")
 	declare_setting("scenography/drone_count", SettingType.NUMBER, 10.0, SettingScope.PROJECT, "Drones", "Nombre de drones", "Nombre total de drones pour cette scénographie")
@@ -89,8 +89,8 @@ func _declare_defaults() -> void:
 	declare_setting("composition/constraints", SettingType.JSON, [], SettingScope.PROJECT, "Composition", "Contraintes de drones", "Liste des contraintes de drones (JSON)")
 	
 	# Paramètres techniques (Global)
-	declare_setting("canvas/grid_visible", SettingType.BOOLEAN, true, SettingScope.GLOBAL, "Canvas", "Grille visible")
-	declare_setting("canvas/snap_threshold", SettingType.NUMBER, 20.0, SettingScope.GLOBAL, "Canvas", "Seuil de magnétisme")
+	declare_setting("canvas/grid_visible", SettingType.BOOLEAN, true, SettingScope.GLOBAL, "Général/Canvas", "Grille visible")
+	declare_setting("canvas/snap_threshold", SettingType.NUMBER, 20.0, SettingScope.GLOBAL, "Général/Canvas", "Seuil de magnétisme")
 
 
 static func _default_nacelles() -> Array:
@@ -158,6 +158,41 @@ func get_categories_for_scope(scope: SettingScope) -> Array[String]:
 	var result: Array[String] = []
 	for k: String in keys:
 		result.append(k)
+	return result
+
+func get_category_tree_for_scope(scope: SettingScope) -> Array:
+	# Collecte les catégories uniques pour ce scope
+	var cats: Dictionary = {}
+	for key in _settings:
+		var s: Setting = _settings[key]
+		if s.scope == scope:
+			cats[s.category] = true
+
+	# Parse les catégories avec "/" comme séparateur et construit l'arbre
+	var tree: Dictionary = {} # L1 name -> Array[String] children
+	for cat: String in cats.keys():
+		var parts := cat.split("/")
+		var l1 := parts[0]
+		if not tree.has(l1):
+			tree[l1] = []
+		if parts.size() > 1:
+			var l2 := parts[1]
+			if not tree[l1].has(l2):
+				tree[l1].append(l2)
+
+	# Tri des L1 : "Général" toujours en premier, puis alphabétique
+	var l1_keys: Array = tree.keys()
+	l1_keys.erase("Général")
+	l1_keys.sort()
+	if tree.has("Général"):
+		l1_keys.insert(0, "Général")
+
+	# Construction du résultat avec children triés
+	var result: Array = []
+	for l1: String in l1_keys:
+		var children: Array = tree[l1].duplicate()
+		children.sort()
+		result.append({"name": l1, "children": children})
 	return result
 
 func get_settings_by_category_and_scope(category: String, scope: SettingScope) -> Array:

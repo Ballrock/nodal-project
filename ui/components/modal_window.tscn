@@ -23,7 +23,7 @@ shadow_size = 12
 [node name="ModalWindow" type="Window" unique_id=2131076501]
 oversampling_override = 1.0
 initial_position = 2
-size = Vector2i(400, 300)
+min_size = Vector2i(350, 250)
 wrap_controls = true
 transient = true
 exclusive = true

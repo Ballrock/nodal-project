@@ -36,7 +36,7 @@ func _ready() -> void:
 	_count_spin.value = 1
 
 func _show() -> void:
-	popup_centered()
+	WindowHelper.popup_fitted(self)
 	_name_edit.grab_focus()
 
 func _input(event: InputEvent) -> void:

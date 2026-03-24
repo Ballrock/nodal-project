@@ -252,8 +252,16 @@ func _on_config_requested(figure: Figure) -> void:
 	get_tree().root.add_child(window)
 	window.setup(figure)
 	_config_windows[figure_id] = window
-	
-	# Centrer par rapport à la fenêtre principale
+
+	# Clamper et centrer par rapport a la fenetre principale
+	var screen_rect := DisplayServer.screen_get_usable_rect(
+		DisplayServer.window_get_current_screen())
+	var max_size := Vector2i(
+		int(screen_rect.size.x * 0.85),
+		int(screen_rect.size.y * 0.85))
+	window.size = Vector2i(
+		mini(window.size.x, max_size.x),
+		mini(window.size.y, max_size.y))
 	var root_pos = get_window().position
 	var root_size = get_window().size
 	window.position = root_pos + (root_size - window.size) / 2

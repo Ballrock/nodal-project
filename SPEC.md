@@ -713,15 +713,21 @@ Un singleton (`Autoload`) gère les paramètres de manière data-driven avec deu
 - `default_value` : Valeur initiale.
 - `value` : Valeur actuelle.
 - `last_modified` : Horodatage de la dernière modification.
-- `category` : Catégorie d'affichage.
+- `category` : Catégorie d'affichage. Supporte un format hiérarchique à 2 niveaux avec `/` comme séparateur (ex: `"Général/Canvas"`). Les catégories sans `/` sont traitées comme niveau 1 simple.
 
 ### 20.2. Fenêtres de Paramètres
 L'interface de configuration s'adapte selon le point d'entrée :
 - **Paramètres Logiciel** (via Fichier) : Affiche uniquement les paramètres `GLOBAL`.
-  - Catégorie **Nacelles** : Affiche la version du fichier et la liste des nacelles disponibles.
+  - Le `CategoryTree` affiche une arborescence à **2 niveaux** :
+    - **Général** (pinned en haut, non-sélectionnable, déplié) → Canvas, Composition, Logiciel
+    - **Base de données** (non-sélectionnable, déplié) → Effets, Nacelles
+  - Les catégories L1 avec enfants sont non-sélectionnables ; seuls les L2 sont cliquables.
+  - Les enfants (L2) sont triés alphabétiquement. "Général" est toujours en premier, les autres L1 sont triés alphabétiquement.
+  - La méthode `get_category_tree_for_scope(scope)` retourne un `Array` de `{ "name": String, "children": Array[String] }`.
+  - Catégorie **Base de données/Nacelles** : Affiche la version du fichier et la liste des nacelles disponibles.
+  - Catégorie **Base de données/Effets** : Affiche la version du fichier et la liste des effets pyrotechniques.
 - **Paramètres Scénographie** (via Scénographie) : Affiche uniquement les paramètres `PROJECT`.
-  - Catégorie **Général** : Nom de la scénographie.
-  - Catégorie **Drones** : Nombre de drones.
+  - Catégories plates (niveau 1 uniquement) : **Général**, **Drones**, **Composition**.
 
 **Interactions et Validation** :
 - Les modifications effectuées dans la fenêtre sont **temporaires** (stockées dans un draft).
