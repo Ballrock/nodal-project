@@ -33,7 +33,7 @@ Ce fichier constitue la référence unique pour :
 La couverture est calculée automatiquement par l'addon `coverage` via les hooks GUT (`pre_run_script` et `post_run_script`).
 
 **Objectif cible :** 80.0% des lignes exécutables.
-**Mesure actuelle :** **60.5%** (Total Coverage: 992/1641 lines).
+**Mesure actuelle :** **65.0%** (Total Coverage: 2283/3513 lines).
 
 Pour recalculer le taux :
 ```bash
@@ -91,9 +91,33 @@ GUT est configuré avec `"should_exit": true` dans `.gutconfig.json`, ce qui fai
 # Détection du binaire Godot
 GODOT=${GODOT_PATH:-$(command -v godot || echo "/Applications/Godot.app/Contents/MacOS/Godot")}
 
-# Lancer tous les tests GUT
+# Lancer tous les tests (unitaires + E2E)
 timeout 120 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd
 ```
+
+```bash
 # Lancer un fichier de test spécifique
-timeout 30 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd -gtest=res://specs/test_example.gd
+timeout 30 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/test_example.gd
 ```
+
+## Tests E2E (end-to-end)
+
+Les tests E2E se trouvent dans `tests/e2e/` et étendent la classe de base `tests/unit/e2e_test_base.gd`.
+Ils simulent de vrais clics, drags et interactions souris sur l'application complète (Main.tscn).
+
+**Structure :**
+- `tests/unit/e2e_test_base.gd` — Classe de base avec helpers de simulation (`_simulate_click`, `_simulate_drag`, `_simulate_link_drag`, `_take_screenshot`, etc.)
+- `tests/e2e/test_e2e_figure_workflow.gd` — Sélection, drag, ajout de slots, pan, zoom, double-clic, menu details
+- `tests/e2e/test_e2e_link_workflow.gd` — Création de liens via slots, règles de connexion, suppression, verrouillage
+- `tests/e2e/test_e2e_full_workflow.gd` — Workflows complets : create→link→save→load, sélection croisée canvas↔timeline
+- `tests/e2e/test_e2e_screenshots.gd` — Test avec capture d'écran à chaque étape (screenshots sauvegardés dans `tests/e2e/screenshots/`)
+
+```bash
+# Lancer uniquement les tests E2E (headless)
+timeout 60 $GODOT --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests/e2e
+
+# Lancer les tests E2E avec screenshots (SANS --headless, nécessite un affichage)
+timeout 60 $GODOT --path . -s addons/gut/gut_cmdln.gd -gtest=res://tests/e2e/test_e2e_screenshots.gd
+```
+
+**Note :** Les tests E2E utilisent `extends "res://tests/unit/e2e_test_base.gd"` car GUT en mode headless ne résout pas les `class_name`. Le fichier de base est donc placé dans `tests/unit/` pour la résolution de chemin.
