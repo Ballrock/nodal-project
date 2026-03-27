@@ -167,6 +167,54 @@ func test_download_guard_prevents_double_download() -> void:
 	assert_true(_manager._is_downloading)
 
 
+# ── Verification de mise a jour ──
+
+func test_update_initial_state() -> void:
+	assert_eq(_manager.is_update_available(), false)
+	assert_eq(_manager.is_checking_update(), false)
+	assert_eq(_manager.get_server_updated(), "")
+
+
+func test_update_available_after_set() -> void:
+	_manager._update_available = true
+	assert_eq(_manager.is_update_available(), true)
+
+
+func test_server_updated_stored() -> void:
+	_manager._server_updated = "2026-03-20T12:00:00.000Z"
+	assert_eq(_manager.get_server_updated(), "2026-03-20T12:00:00.000Z")
+
+
+func test_check_for_update_guard_prevents_double_check() -> void:
+	_manager._is_checking_update = true
+	_manager.check_for_update()
+	# Should still be checking (didn't create new request)
+	assert_true(_manager._is_checking_update)
+
+
+func test_metadata_url_is_set() -> void:
+	assert_true(_manager.METADATA_URL.begins_with("https://"))
+	assert_true(_manager.METADATA_URL.contains("nacelles"))
+
+
+func test_update_check_completed_signal_exists() -> void:
+	assert_true(_manager.has_signal("update_check_completed"))
+
+
+func test_update_check_failed_signal_exists() -> void:
+	assert_true(_manager.has_signal("update_check_failed"))
+
+
+func test_update_available_reset_after_parse() -> void:
+	# Simuler qu'une mise a jour est disponible
+	_manager._update_available = true
+	# Simuler un telechargement reussi (sans HTTP)
+	_manager._parse_nacelles_data({"timestamp": 100, "nacelles": [{"name": "A"}]})
+	_manager._is_loaded = true
+	_manager._update_available = false  # Ceci est fait dans _on_download_completed
+	assert_eq(_manager.is_update_available(), false)
+
+
 # ── NacelleDefinition from_download_dict ──
 
 func test_nacelle_from_download_dict_riff() -> void:

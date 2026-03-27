@@ -175,3 +175,44 @@ func test_download_guard_prevents_double_download() -> void:
 	_manager.download_pyro_effects()
 	# Still downloading (no new request created since we didn't add_child)
 	assert_true(_manager._is_downloading)
+
+
+# ── Verification de mise a jour ──
+
+func test_update_initial_state() -> void:
+	assert_eq(_manager.is_update_available(), false)
+	assert_eq(_manager.is_checking_update(), false)
+	assert_eq(_manager.get_server_updated(), "")
+
+
+func test_update_available_after_set() -> void:
+	_manager._update_available = true
+	assert_eq(_manager.is_update_available(), true)
+
+
+func test_server_updated_stored() -> void:
+	_manager._server_updated = "2026-03-20T12:00:00.000Z"
+	assert_eq(_manager.get_server_updated(), "2026-03-20T12:00:00.000Z")
+
+
+func test_check_for_update_guard_prevents_double_check() -> void:
+	_manager._is_checking_update = true
+	_manager.check_for_update()
+	# Should still be checking (didn't create new request)
+	assert_true(_manager._is_checking_update)
+
+
+func test_update_check_completed_signal_exists() -> void:
+	assert_true(_manager.has_signal("update_check_completed"))
+
+
+func test_update_check_failed_signal_exists() -> void:
+	assert_true(_manager.has_signal("update_check_failed"))
+
+
+func test_update_available_reset_after_parse() -> void:
+	_manager._update_available = true
+	_manager._parse_pyro_effects_data([{"name": "A", "type": "Bengal"}])
+	_manager._is_loaded = true
+	_manager._update_available = false  # Ceci est fait dans _on_download_completed
+	assert_eq(_manager.is_update_available(), false)

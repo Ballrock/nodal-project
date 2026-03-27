@@ -23,6 +23,11 @@ var _pyro_download_btn: Button = null
 var _pyro_list_container: VBoxContainer = null
 var _pyro_count_label: Label = null
 var _pyro_version_label: Label = null
+# References pour les bandeaux de mise a jour
+var _nacelle_update_banner: PanelContainer = null
+var _pyro_update_banner: PanelContainer = null
+# Police d'icones Material Symbols
+var _icon_font: Font = null
 
 func _ready() -> void:
 	visible = false
@@ -33,6 +38,8 @@ func _ready() -> void:
 
 	transient = false
 	exclusive = false
+
+	_icon_font = load("res://assets/fonts/material_symbols_rounded.ttf")
 
 	close_requested.connect(close)
 	apply_button.pressed.connect(_on_apply_pressed)
@@ -208,9 +215,73 @@ func _add_setting_ui(setting: SettingsManager.Setting) -> void:
 	options_container.add_child(HSeparator.new())
 
 
+# --- Bandeau de mise a jour ---
+
+func _create_update_banner(message: String) -> PanelContainer:
+	# Le bandeau est un PanelContainer qui s'etend sur toute la largeur
+	var banner := PanelContainer.new()
+	banner.visible = false
+	banner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# Fond jaune semi-transparent avec bordure gauche
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.85, 0.65, 0.13, 0.15)
+	style.border_color = Color(0.85, 0.65, 0.13, 0.6)
+	style.border_width_left = 3
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	banner.add_theme_stylebox_override("panel", style)
+
+	var inner := HBoxContainer.new()
+	inner.add_theme_constant_override("separation", 8)
+	banner.add_child(inner)
+
+	# Icone warning via Material Symbols
+	var icon_label := Label.new()
+	icon_label.text = "warning"
+	if _icon_font:
+		icon_label.add_theme_font_override("font", _icon_font)
+	icon_label.add_theme_font_size_override("font_size", 20)
+	icon_label.add_theme_color_override("font_color", Color(0.85, 0.65, 0.13))
+	icon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	inner.add_child(icon_label)
+
+	# Message
+	var msg_label := Label.new()
+	msg_label.text = message
+	msg_label.add_theme_color_override("font_color", Color(0.85, 0.65, 0.13))
+	msg_label.add_theme_font_size_override("font_size", 13)
+	msg_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	msg_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.add_child(msg_label)
+
+	return banner
+
+
 # --- Affichage personnalise de la categorie Nacelles ---
 
 func _display_nacelles_category() -> void:
+	# Bandeau de mise a jour
+	_nacelle_update_banner = _create_update_banner("Une nouvelle version des nacelles est disponible. Cliquez sur \"Telecharger\" pour mettre a jour.")
+	options_container.add_child(_nacelle_update_banner)
+
+	# Verifier si une mise a jour est deja connue
+	if NacelleManager.is_update_available():
+		_nacelle_update_banner.visible = true
+
+	# Lancer la verification en arriere-plan
+	if not NacelleManager.update_check_completed.is_connected(_on_nacelle_update_check):
+		NacelleManager.update_check_completed.connect(_on_nacelle_update_check)
+	if not NacelleManager.update_check_failed.is_connected(_on_nacelle_update_check_failed):
+		NacelleManager.update_check_failed.connect(_on_nacelle_update_check_failed)
+	NacelleManager.check_for_update()
+
 	# Section : Informations et telechargement
 	var info_section := VBoxContainer.new()
 	info_section.add_theme_constant_override("separation", 10)
@@ -472,6 +543,20 @@ func _disconnect_nacelle_signals() -> void:
 		NacelleManager.nacelles_download_failed.disconnect(_on_nacelles_download_failed)
 	if NacelleManager.download_finished.is_connected(_on_download_finished):
 		NacelleManager.download_finished.disconnect(_on_download_finished)
+	if NacelleManager.update_check_completed.is_connected(_on_nacelle_update_check):
+		NacelleManager.update_check_completed.disconnect(_on_nacelle_update_check)
+	if NacelleManager.update_check_failed.is_connected(_on_nacelle_update_check_failed):
+		NacelleManager.update_check_failed.disconnect(_on_nacelle_update_check_failed)
+
+
+func _on_nacelle_update_check(update_available: bool) -> void:
+	if _nacelle_update_banner:
+		_nacelle_update_banner.visible = update_available
+
+
+func _on_nacelle_update_check_failed() -> void:
+	# En cas d'echec de verification, ne rien afficher
+	pass
 
 
 func _on_nacelles_updated() -> void:
@@ -481,6 +566,8 @@ func _on_nacelles_updated() -> void:
 		_nacelle_version_label.text = NacelleManager.get_file_version_date()
 	if _nacelle_count_label:
 		_nacelle_count_label.text = str(NacelleManager.get_nacelle_count())
+	if _nacelle_update_banner:
+		_nacelle_update_banner.visible = false
 	_populate_nacelle_list()
 
 
@@ -511,6 +598,21 @@ func _input(event: InputEvent) -> void:
 # --- Affichage personnalise de la categorie Effets Pyro ---
 
 func _display_pyro_effects_category() -> void:
+	# Bandeau de mise a jour
+	_pyro_update_banner = _create_update_banner("Une nouvelle version des effets pyro est disponible. Cliquez sur \"Telecharger\" pour mettre a jour.")
+	options_container.add_child(_pyro_update_banner)
+
+	# Verifier si une mise a jour est deja connue
+	if PyroEffectManager.is_update_available():
+		_pyro_update_banner.visible = true
+
+	# Lancer la verification en arriere-plan
+	if not PyroEffectManager.update_check_completed.is_connected(_on_pyro_update_check):
+		PyroEffectManager.update_check_completed.connect(_on_pyro_update_check)
+	if not PyroEffectManager.update_check_failed.is_connected(_on_pyro_update_check_failed):
+		PyroEffectManager.update_check_failed.connect(_on_pyro_update_check_failed)
+	PyroEffectManager.check_for_update()
+
 	# Section : Informations et telechargement
 	var info_section := VBoxContainer.new()
 	info_section.add_theme_constant_override("separation", 10)
@@ -758,6 +860,20 @@ func _disconnect_pyro_signals() -> void:
 		PyroEffectManager.pyro_effects_download_failed.disconnect(_on_pyro_download_failed)
 	if PyroEffectManager.download_finished.is_connected(_on_pyro_download_finished):
 		PyroEffectManager.download_finished.disconnect(_on_pyro_download_finished)
+	if PyroEffectManager.update_check_completed.is_connected(_on_pyro_update_check):
+		PyroEffectManager.update_check_completed.disconnect(_on_pyro_update_check)
+	if PyroEffectManager.update_check_failed.is_connected(_on_pyro_update_check_failed):
+		PyroEffectManager.update_check_failed.disconnect(_on_pyro_update_check_failed)
+
+
+func _on_pyro_update_check(update_available: bool) -> void:
+	if _pyro_update_banner:
+		_pyro_update_banner.visible = update_available
+
+
+func _on_pyro_update_check_failed() -> void:
+	# En cas d'echec de verification, ne rien afficher
+	pass
 
 
 func _on_pyro_effects_updated() -> void:
@@ -767,6 +883,8 @@ func _on_pyro_effects_updated() -> void:
 		_pyro_version_label.text = PyroEffectManager.get_file_version_date()
 	if _pyro_count_label:
 		_pyro_count_label.text = str(PyroEffectManager.get_pyro_effect_count())
+	if _pyro_update_banner:
+		_pyro_update_banner.visible = false
 	_populate_pyro_effects_list()
 
 

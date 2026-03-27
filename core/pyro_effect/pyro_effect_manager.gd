@@ -8,6 +8,8 @@ signal pyro_effects_loaded
 signal pyro_effects_download_failed(error_message: String)
 signal download_started
 signal download_finished
+signal update_check_completed(update_available: bool)
+signal update_check_failed
 
 const DOWNLOAD_URL = "https://firebasestorage.googleapis.com/v0/b/droneslogsreader.appspot.com/o/hg_pyro_effects%2Fexport_pyro_data.json?alt=media"
 const METADATA_URL = "https://firebasestorage.googleapis.com/v0/b/droneslogsreader.appspot.com/o/hg_pyro_effects%2Fexport_pyro_data.json"
@@ -18,10 +20,14 @@ const META_FILE = "user://pyro_effect_cache/pyro_effects_meta.json"
 var _pyro_effects: Array[PyroEffectDefinition] = []
 var _file_version_date: String = ""
 var _last_download_date: String = ""
+var _server_updated: String = ""
 var _is_loaded: bool = false
 var _is_downloading: bool = false
+var _is_checking_update: bool = false
+var _update_available: bool = false
 var _http_request: HTTPRequest = null
 var _http_meta_request: HTTPRequest = null
+var _http_update_check: HTTPRequest = null
 
 
 func _ready() -> void:
@@ -43,6 +49,18 @@ func is_loaded() -> bool:
 
 func is_downloading() -> bool:
 	return _is_downloading
+
+
+func is_update_available() -> bool:
+	return _update_available
+
+
+func is_checking_update() -> bool:
+	return _is_checking_update
+
+
+func get_server_updated() -> String:
+	return _server_updated
 
 
 func get_last_download_date() -> String:
@@ -70,6 +88,63 @@ func find_by_name(effect_name: String) -> PyroEffectDefinition:
 
 func get_unique_types() -> Array[String]:
 	return PyroEffectDefinition.get_unique_types(_pyro_effects)
+
+
+func check_for_update() -> void:
+	if _is_checking_update:
+		return
+
+	_is_checking_update = true
+
+	if _http_update_check:
+		_http_update_check.queue_free()
+
+	_http_update_check = HTTPRequest.new()
+	add_child(_http_update_check)
+	_http_update_check.request_completed.connect(_on_update_check_completed)
+
+	var error := _http_update_check.request(METADATA_URL)
+	if error != OK:
+		_is_checking_update = false
+		_http_update_check.queue_free()
+		_http_update_check = null
+		update_check_failed.emit()
+
+
+func _on_update_check_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	_is_checking_update = false
+
+	if _http_update_check:
+		_http_update_check.queue_free()
+		_http_update_check = null
+
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		update_check_failed.emit()
+		return
+
+	var json_text := body.get_string_from_utf8()
+	var json := JSON.new()
+	if json.parse(json_text) != OK:
+		update_check_failed.emit()
+		return
+
+	var meta = json.data
+	if not meta is Dictionary:
+		update_check_failed.emit()
+		return
+
+	var remote_updated: String = str(meta.get("updated", ""))
+	if remote_updated.is_empty():
+		update_check_failed.emit()
+		return
+
+	# Comparer avec la version locale
+	if _server_updated.is_empty() or remote_updated != _server_updated:
+		_update_available = true
+	else:
+		_update_available = false
+
+	update_check_completed.emit(_update_available)
 
 
 func download_pyro_effects() -> void:
@@ -145,6 +220,7 @@ func _on_download_completed(result: int, response_code: int, _headers: PackedStr
 	# Charger les nouvelles donnees
 	_parse_pyro_effects_data(data)
 	_is_loaded = true
+	_update_available = false
 
 	# Lancer le telechargement des metadonnees pour la date de version
 	_download_metadata()
@@ -196,8 +272,12 @@ func _on_metadata_completed(result: int, response_code: int, _headers: PackedStr
 	var time_created: String = str(meta.get("timeCreated", ""))
 	if not time_created.is_empty():
 		_file_version_date = time_created
-		_save_download_meta()
-		_sync_to_settings()
+	# updated est la date de derniere modification sur le serveur
+	var updated: String = str(meta.get("updated", ""))
+	if not updated.is_empty():
+		_server_updated = updated
+	_save_download_meta()
+	_sync_to_settings()
 
 
 func _ensure_cache_dir() -> void:
@@ -243,6 +323,7 @@ func _save_download_meta() -> void:
 	var meta := {
 		"lastDownload": _last_download_date,
 		"fileVersionDate": _file_version_date,
+		"serverUpdated": _server_updated,
 	}
 	var file := FileAccess.open(META_FILE, FileAccess.WRITE)
 	if file:
@@ -265,6 +346,7 @@ func _load_download_meta() -> void:
 	if json.parse(content) == OK and json.data is Dictionary:
 		_last_download_date = str(json.data.get("lastDownload", ""))
 		_file_version_date = str(json.data.get("fileVersionDate", ""))
+		_server_updated = str(json.data.get("serverUpdated", ""))
 
 
 func _sync_to_settings() -> void:
