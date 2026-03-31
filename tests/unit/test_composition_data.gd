@@ -303,9 +303,41 @@ func test_constraint_resolve_implications_pyro_effect() -> void:
 	assert_true(result["implied_drone_types"].has(0))
 
 
-func test_constraint_resolve_implications_payload_empty() -> void:
+func test_constraint_resolve_implications_payload_with_nacelle() -> void:
+	# Injecter un catalogue payloads avec contraintes dans SettingsManager
+	var test_payloads := [
+		{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [], "compatible_nacelle_ids": ["nacelle_lasermount"]},
+	]
+	var old_payloads = SettingsManager.get_setting("composition/payloads")
+	SettingsManager.set_setting("composition/payloads", test_payloads)
+
+	var nacelles := [
+		{"id": "nacelle_lasermount", "name": "LaserMount", "compatible_drone_types": [1]},
+	]
 	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_laser", 10)
+	var result := p.resolve_implications(nacelles, [])
+	assert_eq(result["implied_nacelle_ids"].size(), 1, "Laser implique nacelle_lasermount")
+	assert_true(result["nacelle_resolved"], "Nacelle resolue (1 seule)")
+	assert_eq(result["implied_drone_types"].size(), 1, "Un type drone implique via nacelle")
+	assert_true(result["type_resolved"], "Type drone resolu")
+
+	# Restaurer
+	SettingsManager.set_setting("composition/payloads", old_payloads)
+
+
+func test_constraint_resolve_implications_payload_no_constraints() -> void:
+	# Injecter un payload sans contrainte
+	var test_payloads := [
+		{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
+	]
+	var old_payloads = SettingsManager.get_setting("composition/payloads")
+	SettingsManager.set_setting("composition/payloads", test_payloads)
+
+	var p := DroneConstraint.create("Smoke", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_smoke", 5)
 	var result := p.resolve_implications([], [])
 	assert_eq(result["implied_nacelle_ids"].size(), 0)
 	assert_eq(result["implied_drone_types"].size(), 0)
 	assert_false(result["type_resolved"])
+
+	# Restaurer
+	SettingsManager.set_setting("composition/payloads", old_payloads)

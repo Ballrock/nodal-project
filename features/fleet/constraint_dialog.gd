@@ -279,10 +279,10 @@ func _update_implications() -> void:
 			type_label.add_theme_font_size_override("font_size", 12)
 			_implications_container.add_child(type_label)
 
-	# Payload — no implications message
-	if cat == DroneConstraint.ConstraintCategory.PAYLOAD:
+	# Message si aucune implication trouvée
+	if _implications_container.get_child_count() == 0:
 		var info_label := Label.new()
-		info_label.text = "Aucune implication déduite (extensible)"
+		info_label.text = "Aucune implication déduite"
 		info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		info_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 		info_label.add_theme_font_size_override("font_size", 12)

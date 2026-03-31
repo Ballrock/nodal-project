@@ -18,6 +18,14 @@ func before_each() -> void:
 	_workspace().canvas_area.size = Vector2(1280, 720)
 
 
+func after_each() -> void:
+	# Fermer les ConfigWindows natives ajoutées à root par Main._on_config_requested
+	for child in get_tree().root.get_children():
+		if child is Window and child.name.begins_with("ConfigWindow"):
+			child.hide()
+			child.queue_free()
+
+
 # ── Accesseurs ───────────────────────────────────────────
 
 func _workspace() -> Node:
@@ -142,6 +150,8 @@ const SCREENSHOTS_BASE_DIR := "res://tests/e2e/screenshots"
 
 ## Horodatage du run (partagé entre tous les tests d'une même exécution).
 static var _run_timestamp: String = ""
+## Flag pour ne nettoyer qu'une seule fois par run.
+static var _cleanup_done: bool = false
 
 ## Retourne l'horodatage du run courant, initialisé une seule fois.
 func _get_run_timestamp() -> String:
@@ -151,7 +161,47 @@ func _get_run_timestamp() -> String:
 			dt["year"], dt["month"], dt["day"],
 			dt["hour"], dt["minute"], dt["second"]
 		]
+		# Nettoyer les anciens dossiers de screenshots au premier appel
+		if not _cleanup_done:
+			_cleanup_done = true
+			_cleanup_old_screenshots()
 	return _run_timestamp
+
+
+## Supprime tous les anciens dossiers de screenshots (garde uniquement le run courant).
+func _cleanup_old_screenshots() -> void:
+	var base_path := ProjectSettings.globalize_path(SCREENSHOTS_BASE_DIR)
+	var dir := DirAccess.open(base_path)
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if dir.current_is_dir() and entry != "." and entry != ".." and entry != _run_timestamp:
+			_remove_dir_recursive(base_path + "/" + entry)
+		entry = dir.get_next()
+	dir.list_dir_end()
+
+
+## Supprime récursivement un dossier et son contenu.
+func _remove_dir_recursive(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry == "." or entry == "..":
+			entry = dir.get_next()
+			continue
+		var full_path := path + "/" + entry
+		if dir.current_is_dir():
+			_remove_dir_recursive(full_path)
+		else:
+			DirAccess.remove_absolute(full_path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	DirAccess.remove_absolute(path)
 
 ## Capture un screenshot du viewport et le sauvegarde en PNG.
 ## Le nom du fichier est préfixé par le compteur pour garantir l'ordre.
@@ -186,6 +236,36 @@ func _take_screenshot(label: String, test_name: String = "") -> void:
 		gut.p("Screenshot saved: %s" % filename)
 	else:
 		gut.p("WARNING: Could not capture screenshot")
+
+## Capture un screenshot de l'ecran entier (inclut les fenetres OS natives).
+## Utilise DisplayServer.screen_get_image() au lieu du viewport.
+## Si target_window est fourni, le met au premier plan avant la capture.
+func _take_screenshot_os(label: String, test_name: String = "", target_window: Window = null) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+
+	if target_window:
+		target_window.grab_focus()
+	await _wait_frames(4)
+	_screenshot_counter += 1
+
+	var timestamp := _get_run_timestamp()
+	var sub_dir := test_name if test_name != "" else _get_current_test_name()
+	var dir_path := "%s/%s/%s" % [SCREENSHOTS_BASE_DIR, timestamp, sub_dir]
+
+	var dir := DirAccess.open("res://")
+	if dir:
+		dir.make_dir_recursive(dir_path.replace("res://", ""))
+
+	var filename := "%s/%02d_%s.png" % [dir_path, _screenshot_counter, label]
+	var screen_id := DisplayServer.window_get_current_screen()
+	var image := DisplayServer.screen_get_image(screen_id)
+	if image:
+		image.save_png(ProjectSettings.globalize_path(filename))
+		gut.p("Screenshot (OS) saved: %s" % filename)
+	else:
+		gut.p("WARNING: Could not capture OS screenshot")
+
 
 ## Retourne le nom de la méthode de test en cours via GUT.
 func _get_current_test_name() -> String:

@@ -122,7 +122,50 @@ func resolve_implications(nacelles_catalog: Array, effects_catalog: Array) -> Di
 			return result
 
 		ConstraintCategory.PAYLOAD:
-			# No implications for now — extensible later
+			# Résout les implications depuis le catalogue payloads
+			var payloads_catalog: Array = SettingsManager.get_setting("composition/payloads")
+			if payloads_catalog == null:
+				payloads_catalog = []
+			for pl in payloads_catalog:
+				if str(pl.get("id", "")) == value:
+					# Nacelles compatibles
+					var compat_nacelles = pl.get("compatible_nacelle_ids", [])
+					for nid in compat_nacelles:
+						var nid_str := str(nid)
+						if nid_str not in result["implied_nacelle_ids"]:
+							result["implied_nacelle_ids"].append(nid_str)
+					result["nacelle_resolved"] = result["implied_nacelle_ids"].size() == 1
+
+					# Drone types compatibles (directement déclarés)
+					var compat_types = pl.get("compatible_drone_types", [])
+					if not compat_types.is_empty():
+						for t in compat_types:
+							var ti := int(t)
+							if ti not in result["implied_drone_types"]:
+								result["implied_drone_types"].append(ti)
+					else:
+						# Si pas de types directs, résoudre via nacelles
+						for nid_str in result["implied_nacelle_ids"]:
+							for n in nacelles_catalog:
+								if str(n.get("id", "")) == nid_str:
+									var ntypes = n.get("compatible_drone_types", [])
+									for t in ntypes:
+										var ti := int(t)
+										if ti not in result["implied_drone_types"]:
+											result["implied_drone_types"].append(ti)
+									break
+					result["type_resolved"] = result["implied_drone_types"].size() == 1
+
+					# Noms des nacelles
+					for nid_str in result["implied_nacelle_ids"]:
+						for n in nacelles_catalog:
+							if str(n.get("id", "")) == nid_str:
+								result["implied_nacelle_names"].append(str(n.get("name", nid_str)))
+								break
+					# Labels drone types
+					for dt in result["implied_drone_types"]:
+						result["implied_drone_type_labels"].append("RIFF" if dt == 0 else "EMO")
+					break
 			return result
 
 		ConstraintCategory.PYRO_EFFECT:

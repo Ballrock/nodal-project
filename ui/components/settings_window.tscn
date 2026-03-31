@@ -83,6 +83,7 @@ text = "Général"
 [node name="ScrollContainer" type="ScrollContainer" parent="PanelContainer/VBoxContainer/HSplitContainer/MainArea"]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer/VBoxContainer/HSplitContainer/MainArea/ScrollContainer"]
 layout_mode = 2

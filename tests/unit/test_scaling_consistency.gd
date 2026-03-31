@@ -14,12 +14,16 @@ func before_each() -> void:
 	var data := FigureData.create("Figure Test", Vector2.ZERO, 1, 1)
 	_figure.setup(data)
 	add_child_autofree(_figure)
-	
+
 	_config_window = ConfigWindowScene.instantiate()
 	add_child_autofree(_config_window)
 	_config_window.setup(_figure)
-	
+
 	await get_tree().process_frame
+
+func after_each() -> void:
+	if _config_window and is_instance_valid(_config_window):
+		_config_window.hide()
 
 func test_font_size_consistency() -> void:
 	# Récupérer la taille de police du titre de la figure (Label dans le workspace)

@@ -26,6 +26,8 @@ var _pyro_version_label: Label = null
 # References pour les bandeaux de mise a jour
 var _nacelle_update_banner: PanelContainer = null
 var _pyro_update_banner: PanelContainer = null
+# References pour la page payloads
+var _payload_list_container: VBoxContainer = null
 # Police d'icones Material Symbols
 var _icon_font: Font = null
 
@@ -34,7 +36,11 @@ func _ready() -> void:
 	force_native = true
 
 	# Adapter le contenu au DPI de l'écran (Retina, etc.)
-	content_scale_factor = DisplayServer.screen_get_scale()
+	var scale := DisplayServer.screen_get_scale()
+	content_scale_factor = scale
+	# Agrandir la fenêtre proportionnellement au DPI pour compenser le content_scale
+	size = Vector2i(int(900 * scale), int(600 * scale))
+	min_size = Vector2i(int(900 * scale), int(550 * scale))
 
 	transient = false
 	exclusive = false
@@ -142,6 +148,11 @@ func _display_category(category: String) -> void:
 	# Rendu personnalise pour la categorie Effets Pyro
 	if category == "Base de données/Effets" and _current_scope == SettingsManager.SettingScope.GLOBAL:
 		_display_pyro_effects_category()
+		return
+
+	# Rendu personnalise pour la categorie Payloads
+	if category == "Base de données/Payloads" and _current_scope == SettingsManager.SettingScope.GLOBAL:
+		_display_payloads_category()
 		return
 
 	var settings = SettingsManager.get_settings_by_category_and_scope(category, _current_scope)
@@ -898,3 +909,241 @@ func _on_pyro_download_finished() -> void:
 	if _pyro_download_btn:
 		_pyro_download_btn.text = "Telecharger la derniere version"
 		_pyro_download_btn.disabled = false
+
+
+# --- Affichage personnalise de la categorie Payloads ---
+
+func _display_payloads_category() -> void:
+	# Section : Description
+	var desc_label := Label.new()
+	desc_label.text = "Definissez les types de payloads disponibles. Chaque payload peut etre lie a des contraintes de type drone ou de nacelle."
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	desc_label.add_theme_font_size_override("font_size", 13)
+	options_container.add_child(desc_label)
+
+	options_container.add_child(HSeparator.new())
+
+	# Bouton Ajouter
+	var add_box := HBoxContainer.new()
+	add_box.alignment = BoxContainer.ALIGNMENT_END
+	options_container.add_child(add_box)
+
+	var add_btn := Button.new()
+	add_btn.text = "Ajouter un payload"
+	add_btn.pressed.connect(_on_payload_add)
+	add_box.add_child(add_btn)
+
+	options_container.add_child(HSeparator.new())
+
+	# Liste des payloads
+	_payload_list_container = VBoxContainer.new()
+	_payload_list_container.add_theme_constant_override("separation", 4)
+	options_container.add_child(_payload_list_container)
+
+	_populate_payload_list()
+
+
+func _populate_payload_list() -> void:
+	if not _payload_list_container:
+		return
+	for child in _payload_list_container.get_children():
+		child.queue_free()
+
+	var payloads: Array = _draft_settings.get("composition/payloads", [])
+
+	if payloads.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "Aucun payload defini."
+		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		_payload_list_container.add_child(empty_label)
+		return
+
+	for i in payloads.size():
+		var pl: Dictionary = payloads[i]
+		var row := _create_payload_row(pl, i)
+		_payload_list_container.add_child(row)
+		_payload_list_container.add_child(HSeparator.new())
+
+
+func _create_payload_row(pl: Dictionary, index: int) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.18, 0.22, 0.8)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	panel.add_child(vbox)
+
+	# Ligne 1 : Nom + Actions
+	var line1 := HBoxContainer.new()
+	line1.add_theme_constant_override("separation", 8)
+	vbox.add_child(line1)
+
+	var name_label := Label.new()
+	name_label.text = str(pl.get("name", "Sans nom"))
+	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line1.add_child(name_label)
+
+	var edit_btn := Button.new()
+	edit_btn.text = "edit"
+	if _icon_font:
+		edit_btn.add_theme_font_override("font", _icon_font)
+	edit_btn.add_theme_font_size_override("font_size", 18)
+	edit_btn.flat = true
+	edit_btn.tooltip_text = "Modifier"
+	edit_btn.pressed.connect(_on_payload_edit.bind(index))
+	line1.add_child(edit_btn)
+
+	var delete_btn := Button.new()
+	delete_btn.text = "delete"
+	if _icon_font:
+		delete_btn.add_theme_font_override("font", _icon_font)
+	delete_btn.add_theme_font_size_override("font_size", 18)
+	delete_btn.flat = true
+	delete_btn.tooltip_text = "Supprimer"
+	delete_btn.pressed.connect(_on_payload_delete.bind(index))
+	line1.add_child(delete_btn)
+
+	# Ligne 2 : Contraintes résumées
+	var constraints_parts: PackedStringArray = []
+
+	var compat_types = pl.get("compatible_drone_types", [])
+	if compat_types is Array and not compat_types.is_empty():
+		var type_names: PackedStringArray = []
+		for t in compat_types:
+			type_names.append("RIFF" if int(t) == 0 else "EMO")
+		constraints_parts.append("Drones : %s" % ", ".join(type_names))
+
+	var compat_nacelles = pl.get("compatible_nacelle_ids", [])
+	if compat_nacelles is Array and not compat_nacelles.is_empty():
+		var nacelle_names: PackedStringArray = []
+		var nacelles_catalog: Array = SettingsManager.get_setting("composition/nacelles")
+		if nacelles_catalog == null:
+			nacelles_catalog = []
+		for nid in compat_nacelles:
+			var found := false
+			for n in nacelles_catalog:
+				if str(n.get("id", "")) == str(nid):
+					nacelle_names.append(str(n.get("name", str(nid))))
+					found = true
+					break
+			if not found:
+				nacelle_names.append(str(nid))
+		constraints_parts.append("Nacelles : %s" % ", ".join(nacelle_names))
+
+	var constraint_text := ""
+	if not constraints_parts.is_empty():
+		constraint_text = " | ".join(constraints_parts)
+	else:
+		constraint_text = "Aucune restriction"
+
+	var constraint_label := Label.new()
+	constraint_label.text = constraint_text
+	constraint_label.add_theme_font_size_override("font_size", 12)
+	if constraints_parts.is_empty():
+		constraint_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	else:
+		constraint_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
+	vbox.add_child(constraint_label)
+
+	return panel
+
+
+func _on_payload_add() -> void:
+	var dialog := _create_payload_dialog()
+	dialog.open_create(_get_nacelles_catalog())
+
+
+func _on_payload_edit(index: int) -> void:
+	var payloads: Array = _draft_settings.get("composition/payloads", [])
+	if index >= 0 and index < payloads.size():
+		var dialog := _create_payload_dialog()
+		dialog.open_edit(index, payloads[index].duplicate(true), _get_nacelles_catalog())
+
+
+func _get_nacelles_catalog() -> Array:
+	var nacelles_catalog: Array = SettingsManager.get_setting("composition/nacelles")
+	if nacelles_catalog == null:
+		nacelles_catalog = []
+	return nacelles_catalog
+
+
+const PayloadDialogScene := preload("res://ui/components/payload_dialog.tscn")
+
+func _create_payload_dialog() -> Window:
+	var dialog := PayloadDialogScene.instantiate()
+	add_child(dialog)
+	dialog.payload_saved.connect(func(data: Dictionary, idx: int):
+		var payloads: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
+		var entry := {
+			"id": "",
+			"name": data["name"],
+			"compatible_drone_types": data["compatible_drone_types"],
+			"compatible_nacelle_ids": data["compatible_nacelle_ids"],
+		}
+		if idx < 0:
+			# Nouveau payload
+			entry["id"] = "payload_" + str(data["name"]).to_lower().replace(" ", "_")
+			payloads.append(entry)
+		else:
+			# Edition
+			entry["id"] = str(payloads[idx].get("id", ""))
+			if entry["id"] == "":
+				entry["id"] = "payload_" + str(data["name"]).to_lower().replace(" ", "_")
+			payloads[idx] = entry
+		_draft_settings["composition/payloads"] = payloads
+		_populate_payload_list()
+		dialog.queue_free()
+	)
+	dialog.close_requested.connect(func(): dialog.queue_free())
+	return dialog
+
+
+func _on_payload_delete(index: int) -> void:
+	var payloads: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
+	if index < 0 or index >= payloads.size():
+		return
+
+	var payload_id: String = str(payloads[index].get("id", ""))
+	var payload_name: String = str(payloads[index].get("name", ""))
+
+	# Verifier si des contraintes referencent ce payload
+	var constraints: Array = SettingsManager.get_setting("composition/constraints")
+	if constraints == null:
+		constraints = []
+	var refs := SettingsMigrator.find_referencing_constraints(
+		payload_id, DroneConstraint.ConstraintCategory.PAYLOAD, constraints
+	)
+
+	var on_confirm := func():
+		var p: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
+		if index >= 0 and index < p.size():
+			p.remove_at(index)
+			_draft_settings["composition/payloads"] = p
+			_populate_payload_list()
+
+	_show_delete_confirmation(payload_name, refs, on_confirm)
+
+
+func _show_delete_confirmation(item_name: String, refs: Array[String], on_confirm: Callable) -> void:
+	var message: String
+	if refs.is_empty():
+		message = "Supprimer le payload \"%s\" ?" % item_name
+	else:
+		message = "Ce payload est reference par %d contrainte(s) :\n- %s\n\nSupprimer quand meme ?" % [
+			refs.size(), "\n- ".join(refs)
+		]
+	WindowHelper.confirm(self, "Suppression de %s" % item_name, message, on_confirm)
+
+

@@ -71,14 +71,14 @@ func _declare_defaults() -> void:
 	declare_setting("pyro_effects/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Base de données/Effets", "Dernier telechargement", "Date du dernier telechargement des effets pyro")
 	declare_setting("pyro_effects/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Base de données/Effets", "Nombre d'effets pyro", "Nombre d'effets pyro disponibles")
 	declare_setting("pyro_effects/types", SettingType.JSON, [], SettingScope.GLOBAL, "Base de données/Effets", "Types d'effets", "Liste des types d'effets uniques")
-	declare_setting("composition/pyro_effects", SettingType.JSON, [], SettingScope.GLOBAL, "Général/Composition", "Catalogue effets pyro", "Definitions des effets pyro telecharges")
+	declare_setting("composition/pyro_effects", SettingType.JSON, [], SettingScope.GLOBAL, "_internal", "Catalogue effets pyro", "Definitions des effets pyro telecharges")
 
-	# Catalogue global : nacelles (JSON)
-	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "Général/Composition", "Catalogue nacelles", "Définitions des nacelles disponibles")
-	# Catalogue global : effets (JSON)
-	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "Général/Composition", "Catalogue effets", "Définitions des effets disponibles")
-	# Catalogue global : payloads (JSON)
-	declare_setting("composition/payloads", SettingType.JSON, _default_payloads(), SettingScope.GLOBAL, "Général/Composition", "Catalogue payloads", "Types de payloads disponibles")
+	# Catalogue global : nacelles (JSON) — interne, alimenté par le système
+	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "_internal", "Catalogue nacelles", "Définitions des nacelles disponibles")
+	# Catalogue global : effets (JSON) — interne, alimenté par le système
+	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "_internal", "Catalogue effets", "Définitions des effets disponibles")
+	# Catalogue global : payloads (JSON) — éditable dans Base de données/Payloads
+	declare_setting("composition/payloads", SettingType.JSON, _default_payloads(), SettingScope.GLOBAL, "Base de données/Payloads", "Catalogue payloads", "Types de payloads disponibles")
 
 	# --- Paramètres PROJET (Scénographie) ---
 	declare_setting("scenography/name", SettingType.STRING, "Ma Scénographie", SettingScope.PROJECT, "Général", "Nom de la scénographie", "Le nom identifiant ce projet")
@@ -97,7 +97,7 @@ static func _default_nacelles() -> Array:
 	return [
 		{"id": "nacelle_standard", "name": "Standard", "compatible_drone_types": [0, 1]},
 		{"id": "nacelle_pyrolight", "name": "PyroLight", "compatible_drone_types": [0]},
-		{"id": "nacelle_lasermount", "name": "LaserMount", "compatible_drone_types": [1]},
+		{"id": "nacelle_lasermount", "name": "LaserMount", "compatible_drone_types": [0]},
 	]
 
 
@@ -112,9 +112,10 @@ static func _default_effects() -> Array:
 
 static func _default_payloads() -> Array:
 	return [
-		{"id": "payload_laser", "name": "Laser"},
-		{"id": "payload_smoke", "name": "Smoke"},
-		{"id": "payload_strobe", "name": "Strobe"},
+		{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [0], "compatible_nacelle_ids": ["nacelle_lasermount"]},
+		{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
+		{"id": "payload_strobe", "name": "Strobe", "compatible_drone_types": [], "compatible_nacelle_ids": []},
+		{"id": "payload_superlight", "name": "SuperLight", "compatible_drone_types": [0], "compatible_nacelle_ids": []},
 	]
 
 func declare_setting(key: String, type: SettingType, default_value: Variant, scope: SettingScope = SettingScope.GLOBAL, category: String = "Général", label: String = "", description: String = "") -> void:
@@ -167,6 +168,11 @@ func get_category_tree_for_scope(scope: SettingScope) -> Array:
 		var s: Setting = _settings[key]
 		if s.scope == scope:
 			cats[s.category] = true
+
+	# Exclure les catégories internes (préfixe "_")
+	for cat_key: String in cats.keys():
+		if cat_key.begins_with("_"):
+			cats.erase(cat_key)
 
 	# Parse les catégories avec "/" comme séparateur et construit l'arbre
 	var tree: Dictionary = {} # L1 name -> Array[String] children
@@ -223,11 +229,20 @@ func load_project_settings_dict(data: Dictionary) -> void:
 
 func _save_global_settings() -> void:
 	var data := {}
+	data["_version"] = SettingsMigrator.CURRENT_VERSION
 	for key: String in _settings:
 		var s: Setting = _settings[key]
 		if s.scope == SettingScope.GLOBAL:
 			data[key] = s.to_dict()
-	
+
+	var json_string := JSON.stringify(data, "\t")
+	var file := FileAccess.open(SETTINGS_FILE_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(json_string)
+		file.close()
+
+
+func _save_migrated_data(data: Dictionary) -> void:
 	var json_string := JSON.stringify(data, "\t")
 	var file := FileAccess.open(SETTINGS_FILE_PATH, FileAccess.WRITE)
 	if file:
@@ -237,18 +252,26 @@ func _save_global_settings() -> void:
 func _load_global_settings() -> void:
 	if not FileAccess.file_exists(SETTINGS_FILE_PATH):
 		return
-	
+
 	var file := FileAccess.open(SETTINGS_FILE_PATH, FileAccess.READ)
 	if not file:
 		return
-	
+
 	var content := file.get_as_text()
 	file.close()
-	
+
 	var json := JSON.new()
 	if json.parse(content) == OK:
 		var data = json.data
 		if data is Dictionary:
+			# Migration si version obsolete
+			var persisted_version: int = int(data.get("_version", 0))
+			if persisted_version < SettingsMigrator.CURRENT_VERSION:
+				data = SettingsMigrator.migrate(data)
+				_save_migrated_data(data)
+
 			for key: String in data:
+				if key == "_version":
+					continue
 				if _settings.has(key) and _settings[key].scope == SettingScope.GLOBAL:
 					_settings[key].from_dict(data[key])

@@ -17,3 +17,30 @@ static func popup_fitted(win: Window, max_ratio: float = 0.85, auto_resize: bool
 		mini(win.size.x, max_size.x),
 		mini(win.size.y, max_size.y))
 	win.popup_centered()
+
+
+## Affiche un dialogue de confirmation natif OS avec scaling Retina.
+## Appelle on_confirm si l'utilisateur valide, sinon le dialogue se ferme.
+static func confirm(
+	parent: Node,
+	title_text: String,
+	message: String,
+	on_confirm: Callable,
+	ok_text: String = "Supprimer",
+	cancel_text: String = "Annuler"
+) -> ConfirmationDialog:
+	var dialog := ConfirmationDialog.new()
+	dialog.force_native = true
+	dialog.content_scale_factor = DisplayServer.screen_get_scale()
+	dialog.title = title_text
+	dialog.dialog_text = message
+	dialog.ok_button_text = ok_text
+	dialog.cancel_button_text = cancel_text
+	dialog.confirmed.connect(func():
+		on_confirm.call()
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func(): dialog.queue_free())
+	parent.add_child(dialog)
+	dialog.popup_centered()
+	return dialog

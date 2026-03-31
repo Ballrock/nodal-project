@@ -19,6 +19,7 @@ func before_each():
 	_config_window.setup(_figure)
 
 func after_each():
+	_config_window.hide()
 	_config_window.free()
 	_figure.free()
 
