@@ -249,7 +249,8 @@ func _on_config_requested(figure: Figure) -> void:
 			_config_windows.erase(figure_id)
 	
 	var window = CONFIG_WINDOW_SCENE.instantiate()
-	get_tree().root.add_child(window)
+	var main_win := get_window()
+	WindowHelper.open_modal(main_win, window)
 	window.setup(figure)
 	_config_windows[figure_id] = window
 
@@ -262,10 +263,10 @@ func _on_config_requested(figure: Figure) -> void:
 	window.size = Vector2i(
 		mini(window.size.x, max_size.x),
 		mini(window.size.y, max_size.y))
-	var root_pos = get_window().position
-	var root_size = get_window().size
+	var root_pos = main_win.position
+	var root_size = main_win.size
 	window.position = root_pos + (root_size - window.size) / 2
-	
+
 	window.closed.connect(func(id: StringName):
 		_config_windows.erase(id)
 	)

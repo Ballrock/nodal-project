@@ -737,6 +737,107 @@ L'interface de configuration s'adapte selon le point d'entrée :
 
 ---
 
+## 21. Gestion des fenêtres (WindowHelper)
+
+### 21.1. Principes
+
+Toutes les fenêtres secondaires (popups, dialogues, configuration) sont des **Window OS natives** (`force_native = true`) gérées de manière centralisée via la classe utilitaire `WindowHelper`.
+
+Les règles par défaut garantissent un comportement cohérent :
+- **Toute fenêtre** est `transient = true` (rattachée à son parent OS) et `exclusive = true` (bloque l'interaction avec le parent).
+- Le scaling Retina/HiDPI est appliqué automatiquement.
+- Le style visuel est uniforme (fond, bordures, marges, coins arrondis).
+
+### 21.2. Hiérarchie des fenêtres
+
+```
+Niveau 0 — Fenêtre principale (Main)
+│
+├── Niveau 1 — Fenêtres de travail (transient + exclusive de Main)
+│   ├── ConfigWindow (une par figure, multi-instance)
+│   ├── SettingsWindow
+│   └── CompositionWindow
+│
+│   └── Niveau 2 — Sous-dialogues (transient + exclusive du parent N1)
+│       ├── PayloadDialog       (enfant de SettingsWindow)
+│       ├── FleetDialog         (enfant de ConfigWindow ou FleetFigure)
+│       ├── ConstraintDialog    (enfant de CompositionWindow)
+│       ├── ConfirmationDialog  (enfant du N1 qui l'a ouvert)
+│       └── ModalWindow         (enfant du N1 qui l'a ouvert)
+```
+
+### 21.3. Propriétés par défaut
+
+| Propriété | Valeur | Raison |
+|---|---|---|
+| `force_native` | `true` | Rendu OS natif (titre, ombre, redimensionnement) |
+| `content_scale_factor` | `DisplayServer.screen_get_scale()` | Support Retina / HiDPI |
+| `transient` | `true` | Rattachement au parent — reste au-dessus de lui |
+| `exclusive` | `true` | Bloque l'interaction avec le parent tant que la fenêtre est ouverte |
+| `initial_position` | `2` (centré) | Centrage automatique à l'ouverture |
+| `wrap_controls` | `true` | Ajustement automatique de la taille au contenu |
+
+### 21.4. Style visuel uniforme
+
+Toutes les fenêtres utilisent le même `dialog_panel_style` (`StyleBoxFlat`) :
+
+| Propriété | Valeur |
+|---|---|
+| `bg_color` | `Color(0.15, 0.15, 0.18, 0.98)` |
+| `content_margin` | 24px horizontal, 20px vertical |
+| `border_width` | 0 (pas de bordure, l'OS natif gère le contour) |
+| `corner_radius` | 8px (tous coins) |
+| `shadow_size` | 0 (pas d'ombre interne, l'ombre est gérée par l'OS natif) |
+
+Les boutons suivent une palette de couleurs standard :
+- **Valider / Appliquer** : `Color(0.29, 0.56, 0.85, 1)` (bleu)
+- **Annuler** : `Color(0.3, 0.3, 0.33, 1)` (gris)
+- **Supprimer** : `Color(0.75, 0.25, 0.25, 1)` (rouge)
+- **Ajouter** : `Color(0.33, 0.75, 0.42, 1)` (vert)
+
+### 21.5. Backdrop modal
+
+Quand une fenêtre modale (N1 ou N2) s'ouvre, un **backdrop sombre semi-transparent** (`Color(0, 0, 0, 0.45)`) est affiché par-dessus le contenu de la fenêtre parente. Le backdrop :
+- Indique visuellement quelle fenêtre est active (la parente est assombrie).
+- Bloque les hover/clic dans la fenêtre parente (via `mouse_filter = MOUSE_FILTER_STOP`).
+- Se retire automatiquement quand la fenêtre enfant se ferme (`hide` ou `queue_free`).
+
+Ce comportement est géré par `WindowHelper.open_modal()` (pour les sous-dialogues) et `WindowHelper.show_backdrop()` / `hide_backdrop()` (pour les fenêtres N1 gérées manuellement).
+
+### 21.6. Convention de création d'une fenêtre
+
+```gdscript
+# Dans le _ready() de chaque fenêtre :
+func _ready() -> void:
+    visible = false
+    WindowHelper.setup_window(self)
+    # ... reste de l'initialisation
+
+# Pour ouvrir une fenêtre N1 (depuis Main) :
+WindowHelper.show_backdrop(get_window())  # backdrop sur la fenêtre principale
+my_window.open()                          # open() appelle popup_fitted()
+# Dans close() de la fenêtre N1 :
+WindowHelper.hide_backdrop(get_parent_window())
+
+# Pour ouvrir un sous-dialogue N2 (depuis une fenêtre N1) :
+var dialog = MyDialogScene.instantiate()
+WindowHelper.open_modal(self, dialog)     # backdrop auto + add_child
+dialog.open_create(...)                   # le backdrop se retire automatiquement à la fermeture
+```
+
+### 21.7. Méthodes WindowHelper
+
+| Méthode | Description |
+|---|---|
+| `setup_window(win: Window)` | Applique `force_native`, `content_scale_factor`, `transient=true`, `exclusive=true` |
+| `popup_fitted(win, max_ratio, auto_resize)` | Redimensionne et centre la fenêtre (max 85% de l'écran) |
+| `confirm(parent, title, message, on_confirm, ok_text, cancel_text)` | Crée un `ConfirmationDialog` natif OS avec backdrop |
+| `open_modal(parent_win, child_win)` | Ajoute l'enfant au parent avec backdrop automatique |
+| `show_backdrop(parent_win)` | Ajoute un overlay sombre sur la fenêtre parente |
+| `hide_backdrop(parent_win)` | Retire l'overlay de la fenêtre parente |
+
+---
+
 ## Décisions techniques
 
 - **GDScript** retenu comme langage unique.

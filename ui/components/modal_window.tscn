@@ -1,24 +1,7 @@
 [gd_scene format=3 uid="uid://c6r8q0y4v8x2b"]
 
 [ext_resource type="Script" uid="uid://cfldeq6ig5ngx" path="res://ui/components/modal_window.gd" id="1_script"]
-
-[sub_resource type="StyleBoxFlat" id="dialog_panel_style"]
-content_margin_left = 24.0
-content_margin_top = 20.0
-content_margin_right = 24.0
-content_margin_bottom = 20.0
-bg_color = Color(0.15, 0.15, 0.18, 0.98)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.4, 0.4, 0.45, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-shadow_color = Color(0, 0, 0, 0.3)
-shadow_size = 12
+[ext_resource type="StyleBoxFlat" path="res://assets/themes/dialog_panel_style.tres" id="2_style"]
 
 [node name="ModalWindow" type="Window" unique_id=2131076501]
 oversampling_override = 1.0
@@ -35,7 +18,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("dialog_panel_style")
+theme_override_styles/panel = ExtResource("2_style")
 
 [node name="VBox" type="VBoxContainer" parent="PanelContainer" unique_id=1388396394]
 layout_mode = 2

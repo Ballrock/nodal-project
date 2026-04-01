@@ -175,12 +175,15 @@ func test_payload_settings_workflow() -> void:
 		_simulate_button_press(delete_btn)
 		await _wait_frames(3)
 
-	# Confirmer la suppression dans le ConfirmationDialog
-	var confirm_dialog := _find_confirmation_dialog(sw)
+	# Confirmer la suppression dans le dialogue de confirmation custom
+	var confirm_dialog := _find_confirm_dialog(sw)
 	assert_not_null(confirm_dialog, "Le dialogue de confirmation de suppression doit s'ouvrir")
 	await _take_screenshot_os("09a_confirmation_suppression", "", confirm_dialog)
 	if confirm_dialog:
-		confirm_dialog.confirmed.emit()
+		# Trouver et cliquer le bouton OK (dernier bouton du HBoxContainer)
+		var ok_btn := _find_last_button(confirm_dialog)
+		if ok_btn:
+			_simulate_button_press(ok_btn)
 		await _wait_frames(3)
 	await _take_screenshot("09_payload_supprime")
 
@@ -202,12 +205,29 @@ func test_payload_settings_workflow() -> void:
 	pass_test("Workflow complet de parametrage des payloads termine")
 
 
-## Trouve le ConfirmationDialog ouvert (enfant de la SettingsWindow)
-func _find_confirmation_dialog(parent: Node) -> ConfirmationDialog:
+## Trouve le dialogue de confirmation ouvert (Window enfant visible, hors PayloadDialog).
+func _find_confirm_dialog(parent: Node) -> Window:
 	for child in parent.get_children():
-		if child is ConfirmationDialog and child.visible:
+		if child is Window and child.visible and not child.name.begins_with("PayloadDialog"):
 			return child
 	return null
+
+
+## Trouve le dernier bouton dans un arbre de nœuds (le bouton OK/Supprimer).
+func _find_last_button(parent: Node) -> Button:
+	var all: Array[Button] = []
+	_collect_buttons(parent, all)
+	if all.is_empty():
+		return null
+	return all[all.size() - 1]
+
+
+func _collect_buttons(parent: Node, result: Array[Button]) -> void:
+	for child in parent.get_children():
+		if child is Button:
+			result.append(child)
+		if child.get_child_count() > 0:
+			_collect_buttons(child, result)
 
 
 # ── Helpers supplementaires ──

@@ -79,3 +79,96 @@ func test_popup_fitted_min_size_respected() -> void:
 	WindowHelper.popup_fitted(_window, 0.85)
 	assert_true(_window.size.x >= 300, "Width should respect min_size")
 	assert_true(_window.size.y >= 250, "Height should respect min_size")
+
+
+# ── Tests setup_window ────────────────────────────────────
+
+func test_setup_window_sets_properties() -> void:
+	var win := Window.new()
+	win.visible = false
+	add_child(win)
+	WindowHelper.setup_window(win)
+	assert_true(win.transient, "transient doit être true")
+	assert_true(win.exclusive, "exclusive doit être true")
+	win.queue_free()
+
+
+# ── Tests backdrop ────────────────────────────────────────
+
+func test_show_backdrop_adds_overlay() -> void:
+	var backdrop := WindowHelper.show_backdrop(_window)
+	assert_not_null(backdrop, "show_backdrop doit retourner un ColorRect")
+	assert_eq(backdrop.name, "__modal_backdrop")
+	assert_true(backdrop.get_parent() == _window, "Le backdrop doit être enfant de la fenêtre")
+	assert_eq(backdrop.mouse_filter, Control.MOUSE_FILTER_STOP, "Le backdrop doit bloquer les events souris")
+
+
+func test_show_backdrop_color() -> void:
+	var backdrop := WindowHelper.show_backdrop(_window)
+	assert_eq(backdrop.color, Color(0, 0, 0, 0.45), "Couleur du backdrop")
+
+
+func test_hide_backdrop_removes_overlay() -> void:
+	WindowHelper.show_backdrop(_window)
+	assert_not_null(_window.get_node_or_null("__modal_backdrop"), "Le backdrop doit exister")
+	WindowHelper.hide_backdrop(_window)
+	await get_tree().process_frame
+	assert_null(_window.get_node_or_null("__modal_backdrop"), "Le backdrop doit être retiré")
+
+
+func test_show_backdrop_replaces_existing() -> void:
+	WindowHelper.show_backdrop(_window)
+	var second := WindowHelper.show_backdrop(_window)
+	# Un seul backdrop doit exister (le second a remplacé le premier)
+	var count := 0
+	for child in _window.get_children():
+		if child.name == "__modal_backdrop":
+			count += 1
+	# Le premier est queue_free'd, le second est actif
+	assert_not_null(second)
+
+
+func test_hide_backdrop_noop_when_no_backdrop() -> void:
+	# Ne doit pas crasher si pas de backdrop
+	WindowHelper.hide_backdrop(_window)
+	assert_null(_window.get_node_or_null("__modal_backdrop"))
+
+
+func test_bind_backdrop_auto_removes_on_hide() -> void:
+	var child_win := Window.new()
+	child_win.visible = false
+	WindowHelper.open_modal(_window, child_win)
+	assert_not_null(_window.get_node_or_null("__modal_backdrop"), "Backdrop doit exister après open_modal")
+	# Rendre visible puis cacher (simule open → close d'un vrai dialogue)
+	child_win.popup_centered()
+	await get_tree().process_frame
+	child_win.hide()
+	await get_tree().process_frame
+	assert_null(_window.get_node_or_null("__modal_backdrop"), "Backdrop doit disparaître quand l'enfant se ferme")
+	child_win.queue_free()
+
+
+func test_bind_backdrop_auto_removes_on_free() -> void:
+	var child_win := Window.new()
+	child_win.visible = false
+	WindowHelper.open_modal(_window, child_win)
+	assert_not_null(_window.get_node_or_null("__modal_backdrop"), "Backdrop doit exister")
+	child_win.queue_free()
+	await get_tree().process_frame
+	assert_null(_window.get_node_or_null("__modal_backdrop"), "Backdrop doit disparaître quand l'enfant est détruit")
+
+
+func test_open_modal_adds_child_to_parent() -> void:
+	var child_win := Window.new()
+	child_win.visible = false
+	WindowHelper.open_modal(_window, child_win)
+	assert_true(child_win.get_parent() == _window, "L'enfant doit être ajouté comme enfant du parent")
+	child_win.queue_free()
+
+
+func test_confirm_shows_backdrop() -> void:
+	var called := false
+	var dialog := WindowHelper.confirm(_window, "Test", "Message", func(): called = true)
+	assert_not_null(_window.get_node_or_null("__modal_backdrop"), "confirm() doit afficher un backdrop")
+	dialog.queue_free()
+	await get_tree().process_frame

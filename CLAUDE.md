@@ -29,6 +29,7 @@ Ce fichier constitue la référence unique pour :
 13. **TU NE DOIS JAMAIS FAIRE DE COMMIT PUSH** Toute modifications doit être validée localement uniquement.
 14. **Créer un test E2E avec screenshots pour chaque interface ou modification d'interface**. Si un test E2E n'existe pas encore pour l'écran modifié, en créer un dans `tests/e2e/`. Le test doit utiliser `_take_screenshot()` à chaque étape clé du workflow. Les anciens screenshots sont automatiquement nettoyés à chaque nouveau run.
 15. **Servir les screenshots après les tests E2E** en lançant `./serve_screenshots.sh` à la racine du projet. Cela permet de visualiser les résultats à distance (ex: via Remote Control) sur `http://<IP_LOCALE>:8899/`.
+16. **Valider CHAQUE modification avec la boucle complète : tests unitaires + tests E2E + analyse visuelle des screenshots**. Ne jamais considérer un changement comme terminé sans avoir (1) lancé tous les tests headless et vérifié 0 failure, (2) lancé les tests E2E non-headless pour générer les screenshots, (3) ouvert et analysé visuellement les screenshots produits pour vérifier le rendu réel (taille, style, alignement, absence de régression visuelle). Un test qui passe ne garantit pas que le rendu est correct — seul le screenshot le confirme.
 
 ## Couverture des tests
 

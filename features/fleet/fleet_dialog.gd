@@ -20,6 +20,7 @@ var _editing_fleet: FleetData = null
 
 func _ready() -> void:
 	visible = false
+	WindowHelper.setup_window(self)
 	close_requested.connect(_close)
 	_validate_btn.pressed.connect(_on_validate)
 	_cancel_btn.pressed.connect(_close)

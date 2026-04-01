@@ -1,18 +1,7 @@
 [gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://features/fleet/constraint_dialog.gd" id="1"]
-
-[sub_resource type="StyleBoxFlat" id="dialog_panel_style"]
-content_margin_left = 24.0
-content_margin_top = 20.0
-content_margin_right = 24.0
-content_margin_bottom = 20.0
-bg_color = Color(0.15, 0.15, 0.18, 0.98)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.4, 0.4, 0.45, 1)
+[ext_resource type="StyleBoxFlat" path="res://assets/themes/dialog_panel_style.tres" id="2_style"]
 
 [sub_resource type="StyleBoxFlat" id="btn_validate_style"]
 content_margin_left = 12.0
@@ -62,7 +51,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("dialog_panel_style")
+theme_override_styles/panel = ExtResource("2_style")
 
 [node name="VBox" type="VBoxContainer" parent="PanelContainer"]
 layout_mode = 2

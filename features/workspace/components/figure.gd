@@ -343,7 +343,7 @@ func _on_details_menu_id_pressed(id: int) -> void:
 
 func _show_rename_dialog() -> void:
 	var modal = MODAL_WINDOW_SCENE.instantiate()
-	get_tree().root.add_child(modal)
+	WindowHelper.open_modal(get_window(), modal)
 	modal.setup("Renommer la figure")
 	
 	var edit := LineEdit.new()
@@ -378,7 +378,7 @@ func _show_rename_dialog() -> void:
 
 func _show_color_dialog() -> void:
 	var modal = MODAL_WINDOW_SCENE.instantiate()
-	get_tree().root.add_child(modal)
+	WindowHelper.open_modal(get_window(), modal)
 	modal.setup("Changer la couleur")
 	
 	var picker := ColorPicker.new()

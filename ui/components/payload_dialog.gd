@@ -18,10 +18,7 @@ var _nacelle_checks: Array[CheckBox] = []
 
 func _ready() -> void:
 	visible = false
-	force_native = true
-	content_scale_factor = DisplayServer.screen_get_scale()
-	transient = true
-	exclusive = true
+	WindowHelper.setup_window(self)
 
 	_validate_btn.pressed.connect(_on_validate)
 	_cancel_btn.pressed.connect(_close)

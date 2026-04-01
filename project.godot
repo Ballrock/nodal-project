@@ -33,7 +33,7 @@ window/size/mode=2
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gut/plugin.cfg", "res://addons/coverage/plugin.cfg")
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 
 [gui]
 

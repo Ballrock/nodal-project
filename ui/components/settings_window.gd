@@ -33,17 +33,12 @@ var _icon_font: Font = null
 
 func _ready() -> void:
 	visible = false
-	force_native = true
+	WindowHelper.setup_window(self)
 
-	# Adapter le contenu au DPI de l'écran (Retina, etc.)
-	var scale := DisplayServer.screen_get_scale()
-	content_scale_factor = scale
 	# Agrandir la fenêtre proportionnellement au DPI pour compenser le content_scale
+	var scale := DisplayServer.screen_get_scale()
 	size = Vector2i(int(900 * scale), int(600 * scale))
 	min_size = Vector2i(int(900 * scale), int(550 * scale))
-
-	transient = false
-	exclusive = false
 
 	_icon_font = load("res://assets/fonts/material_symbols_rounded.ttf")
 
@@ -57,6 +52,7 @@ func open_global() -> void:
 	title = "Paramètres Logiciel"
 	_prepare_draft()
 	_refresh()
+	WindowHelper.bind_backdrop(get_tree().root.get_window(), self)
 	WindowHelper.popup_fitted(self, 0.85, false)
 
 func open_project() -> void:
@@ -64,6 +60,7 @@ func open_project() -> void:
 	title = "Paramètres Scénographie"
 	_prepare_draft()
 	_refresh()
+	WindowHelper.bind_backdrop(get_tree().root.get_window(), self)
 	WindowHelper.popup_fitted(self, 0.85, false)
 
 func close() -> void:
@@ -1083,7 +1080,7 @@ const PayloadDialogScene := preload("res://ui/components/payload_dialog.tscn")
 
 func _create_payload_dialog() -> Window:
 	var dialog := PayloadDialogScene.instantiate()
-	add_child(dialog)
+	WindowHelper.open_modal(self, dialog)
 	dialog.payload_saved.connect(func(data: Dictionary, idx: int):
 		var payloads: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
 		var entry := {
@@ -1145,5 +1142,3 @@ func _show_delete_confirmation(item_name: String, refs: Array[String], on_confir
 			refs.size(), "\n- ".join(refs)
 		]
 	WindowHelper.confirm(self, "Suppression de %s" % item_name, message, on_confirm)
-
-

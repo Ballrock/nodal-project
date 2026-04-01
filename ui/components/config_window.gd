@@ -17,20 +17,9 @@ var figure_data: FigureData
 
 func _ready() -> void:
 	close_requested.connect(_on_close_requested)
-	
-	# Forcer la fenêtre native OS pour un rendu correct du texte
+
 	visible = false
-	force_native = true
-	
-	# Adapter le contenu au DPI de l'écran (Retina, etc.)
-	content_scale_factor = DisplayServer.screen_get_scale()
-	
-	# Désactiver transient permet à la fenêtre d'être plus indépendante de la parente
-	# sur certains OS, et d'être vue comme une fenêtre séparée.
-	transient = false
-	exclusive = false
-	unresizable = false
-	always_on_top = true # Permet de garder la configuration visible pendant l'interaction nodal
+	WindowHelper.setup_window(self)
 	
 	if _title_edit:
 		_title_edit.text_changed.connect(_on_title_changed)

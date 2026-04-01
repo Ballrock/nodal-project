@@ -23,10 +23,7 @@ var _draft_constraints: Array[DroneConstraint] = []
 
 func _ready() -> void:
 	visible = false
-	force_native = true
-	content_scale_factor = DisplayServer.screen_get_scale()
-	transient = false
-	exclusive = false
+	WindowHelper.setup_window(self)
 
 	close_requested.connect(_close)
 	_apply_btn.pressed.connect(_on_apply)
@@ -40,6 +37,7 @@ func _ready() -> void:
 func open() -> void:
 	_load_draft()
 	_refresh()
+	WindowHelper.bind_backdrop(get_tree().root.get_window(), self)
 	WindowHelper.popup_fitted(self, 0.85, false)
 
 
@@ -233,7 +231,7 @@ func _create_constraint_row(constraint: DroneConstraint, index: int, nacelles_ca
 
 func _on_add_constraint() -> void:
 	var dialog := ConstraintDialogScene.instantiate()
-	add_child(dialog)
+	WindowHelper.open_modal(self, dialog)
 	dialog.open_create()
 	dialog.constraint_created.connect(func(p: DroneConstraint):
 		_draft_constraints.append(p)
@@ -248,7 +246,7 @@ func _on_edit_constraint(index: int) -> void:
 		return
 	var constraint := _draft_constraints[index]
 	var dialog := ConstraintDialogScene.instantiate()
-	add_child(dialog)
+	WindowHelper.open_modal(self, dialog)
 	dialog.open_edit(constraint)
 	dialog.constraint_updated.connect(func(_p: DroneConstraint):
 		_refresh()

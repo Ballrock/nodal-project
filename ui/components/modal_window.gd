@@ -9,6 +9,8 @@ signal closed
 @onready var content_container: VBoxContainer = %ContentContainer
 
 func _ready() -> void:
+	visible = false
+	WindowHelper.setup_window(self)
 	close_requested.connect(close)
 	# Les fenêtres modales centrent au départ
 	WindowHelper.popup_fitted(self)
