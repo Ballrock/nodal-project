@@ -26,8 +26,13 @@ var _pyro_version_label: Label = null
 # References pour les bandeaux de mise a jour
 var _nacelle_update_banner: PanelContainer = null
 var _pyro_update_banner: PanelContainer = null
-# References pour la page payloads
+# References pour la page payloads (mise a jour dynamique)
+var _payload_status_label: Label = null
+var _payload_download_btn: Button = null
 var _payload_list_container: VBoxContainer = null
+var _payload_count_label: Label = null
+# Bandeau de mise a jour payloads
+var _payload_update_banner: PanelContainer = null
 # Police d'icones Material Symbols
 var _icon_font: Font = null
 
@@ -68,6 +73,7 @@ func close() -> void:
 	_draft_settings.clear()
 	_disconnect_nacelle_signals()
 	_disconnect_pyro_signals()
+	_disconnect_payload_signals()
 
 func _prepare_draft() -> void:
 	_draft_settings.clear()
@@ -134,6 +140,7 @@ func _display_category(category: String) -> void:
 
 	_disconnect_nacelle_signals()
 	_disconnect_pyro_signals()
+	_disconnect_payload_signals()
 	for child in options_container.get_children():
 		child.queue_free()
 
@@ -911,34 +918,83 @@ func _on_pyro_download_finished() -> void:
 # --- Affichage personnalise de la categorie Payloads ---
 
 func _display_payloads_category() -> void:
-	# Section : Description
-	var desc_label := Label.new()
-	desc_label.text = "Definissez les types de payloads disponibles. Chaque payload peut etre lie a des contraintes de type drone ou de nacelle."
-	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	desc_label.add_theme_font_size_override("font_size", 13)
-	options_container.add_child(desc_label)
+	# Bandeau de mise a jour
+	_payload_update_banner = _create_update_banner("Une nouvelle version des payloads est disponible. Cliquez sur \"Telecharger\" pour mettre a jour.")
+	options_container.add_child(_payload_update_banner)
+
+	# Verifier si une mise a jour est deja connue
+	if PayloadManager.is_update_available():
+		_payload_update_banner.visible = true
+
+	# Lancer la verification en arriere-plan
+	if not PayloadManager.update_check_completed.is_connected(_on_payload_update_check):
+		PayloadManager.update_check_completed.connect(_on_payload_update_check)
+	if not PayloadManager.update_check_failed.is_connected(_on_payload_update_check_failed):
+		PayloadManager.update_check_failed.connect(_on_payload_update_check_failed)
+	PayloadManager.check_for_update()
+
+	# Section : Informations et telechargement
+	var info_section := VBoxContainer.new()
+	info_section.add_theme_constant_override("separation", 10)
+	options_container.add_child(info_section)
+
+	# Derniere mise a jour
+	var last_dl_box := HBoxContainer.new()
+	info_section.add_child(last_dl_box)
+
+	var last_dl_label := Label.new()
+	last_dl_label.text = "Dernier telechargement :"
+	last_dl_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	last_dl_box.add_child(last_dl_label)
+
+	_payload_status_label = Label.new()
+	_payload_status_label.text = PayloadManager.get_last_download_date_formatted()
+	_payload_status_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	last_dl_box.add_child(_payload_status_label)
+
+	# Nombre de payloads
+	var count_box := HBoxContainer.new()
+	info_section.add_child(count_box)
+
+	var count_title := Label.new()
+	count_title.text = "Payloads disponibles :"
+	count_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	count_box.add_child(count_title)
+
+	_payload_count_label = Label.new()
+	_payload_count_label.text = str(PayloadManager.get_payload_count())
+	_payload_count_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	count_box.add_child(_payload_count_label)
+
+	# Bouton Telecharger
+	var btn_box := HBoxContainer.new()
+	btn_box.alignment = BoxContainer.ALIGNMENT_END
+	info_section.add_child(btn_box)
+
+	_payload_download_btn = Button.new()
+	_payload_download_btn.text = "Telecharger la derniere version"
+	_payload_download_btn.pressed.connect(_on_payload_download_pressed)
+	if PayloadManager.is_downloading():
+		_payload_download_btn.text = "Telechargement en cours..."
+		_payload_download_btn.disabled = true
+	btn_box.add_child(_payload_download_btn)
 
 	options_container.add_child(HSeparator.new())
 
-	# Bouton Ajouter
-	var add_box := HBoxContainer.new()
-	add_box.alignment = BoxContainer.ALIGNMENT_END
-	options_container.add_child(add_box)
+	# Section : Liste des payloads
+	var list_header := Label.new()
+	list_header.text = "Liste des payloads"
+	list_header.add_theme_font_size_override("font_size", 16)
+	options_container.add_child(list_header)
 
-	var add_btn := Button.new()
-	add_btn.text = "Ajouter un payload"
-	add_btn.pressed.connect(_on_payload_add)
-	add_box.add_child(add_btn)
-
-	options_container.add_child(HSeparator.new())
-
-	# Liste des payloads
 	_payload_list_container = VBoxContainer.new()
 	_payload_list_container.add_theme_constant_override("separation", 4)
 	options_container.add_child(_payload_list_container)
 
 	_populate_payload_list()
+
+	# Connecter les signaux du PayloadManager
+	_connect_payload_signals()
 
 
 func _populate_payload_list() -> void:
@@ -947,23 +1003,23 @@ func _populate_payload_list() -> void:
 	for child in _payload_list_container.get_children():
 		child.queue_free()
 
-	var payloads: Array = _draft_settings.get("composition/payloads", [])
+	var payloads := PayloadManager.get_payloads()
 
 	if payloads.is_empty():
 		var empty_label := Label.new()
-		empty_label.text = "Aucun payload defini."
+		empty_label.text = "Aucun payload disponible. Cliquez sur \"Telecharger\" pour recuperer la liste."
 		empty_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_payload_list_container.add_child(empty_label)
 		return
 
-	for i in payloads.size():
-		var pl: Dictionary = payloads[i]
-		var row := _create_payload_row(pl, i)
+	for p: PayloadDefinition in payloads:
+		var row := _create_payload_row(p)
 		_payload_list_container.add_child(row)
 		_payload_list_container.add_child(HSeparator.new())
 
 
-func _create_payload_row(pl: Dictionary, index: int) -> PanelContainer:
+func _create_payload_row(p: PayloadDefinition) -> PanelContainer:
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.18, 0.18, 0.22, 0.8)
@@ -978,167 +1034,106 @@ func _create_payload_row(pl: Dictionary, index: int) -> PanelContainer:
 	panel.add_theme_stylebox_override("panel", style)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
+	vbox.add_theme_constant_override("separation", 4)
 	panel.add_child(vbox)
 
-	# Ligne 1 : Nom + Actions
+	# Ligne 1 : Nom + Compatibilite drones
 	var line1 := HBoxContainer.new()
-	line1.add_theme_constant_override("separation", 8)
 	vbox.add_child(line1)
 
 	var name_label := Label.new()
-	name_label.text = str(pl.get("name", "Sans nom"))
-	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.text = p.name
+	name_label.add_theme_font_size_override("font_size", 14)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line1.add_child(name_label)
 
-	var edit_btn := Button.new()
-	edit_btn.text = "edit"
-	if _icon_font:
-		edit_btn.add_theme_font_override("font", _icon_font)
-	edit_btn.add_theme_font_size_override("font_size", 18)
-	edit_btn.flat = true
-	edit_btn.tooltip_text = "Modifier"
-	edit_btn.pressed.connect(_on_payload_edit.bind(index))
-	line1.add_child(edit_btn)
+	# Badges de compatibilite drone
+	if p.actif_riff:
+		var riff_label := Label.new()
+		riff_label.text = "RIFF"
+		riff_label.add_theme_color_override("font_color", Color(0.29, 0.56, 0.85))
+		riff_label.add_theme_font_size_override("font_size", 12)
+		line1.add_child(riff_label)
+	if p.actif_emo:
+		var emo_label := Label.new()
+		emo_label.text = "EMO"
+		emo_label.add_theme_color_override("font_color", Color(0.49, 0.78, 0.89))
+		emo_label.add_theme_font_size_override("font_size", 12)
+		line1.add_child(emo_label)
+	if not p.actif_riff and not p.actif_emo:
+		var none_label := Label.new()
+		none_label.text = "Aucun drone"
+		none_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		none_label.add_theme_font_size_override("font_size", 12)
+		line1.add_child(none_label)
 
-	var delete_btn := Button.new()
-	delete_btn.text = "delete"
-	if _icon_font:
-		delete_btn.add_theme_font_override("font", _icon_font)
-	delete_btn.add_theme_font_size_override("font_size", 18)
-	delete_btn.flat = true
-	delete_btn.tooltip_text = "Supprimer"
-	delete_btn.pressed.connect(_on_payload_delete.bind(index))
-	line1.add_child(delete_btn)
-
-	# Ligne 2 : Contraintes résumées
-	var constraints_parts: PackedStringArray = []
-
-	var compat_types = pl.get("compatible_drone_types", [])
-	if compat_types is Array and not compat_types.is_empty():
-		var type_names: PackedStringArray = []
-		for t in compat_types:
-			type_names.append("RIFF" if int(t) == 0 else "EMO")
-		constraints_parts.append("Drones : %s" % ", ".join(type_names))
-
-	var compat_nacelles = pl.get("compatible_nacelle_ids", [])
-	if compat_nacelles is Array and not compat_nacelles.is_empty():
-		var nacelle_names: PackedStringArray = []
-		var nacelles_catalog: Array = SettingsManager.get_setting("composition/nacelles")
-		if nacelles_catalog == null:
-			nacelles_catalog = []
-		for nid in compat_nacelles:
-			var found := false
-			for n in nacelles_catalog:
-				if str(n.get("id", "")) == str(nid):
-					nacelle_names.append(str(n.get("name", str(nid))))
-					found = true
-					break
-			if not found:
-				nacelle_names.append(str(nid))
-		constraints_parts.append("Nacelles : %s" % ", ".join(nacelle_names))
-
-	var constraint_text := ""
-	if not constraints_parts.is_empty():
-		constraint_text = " | ".join(constraints_parts)
-	else:
-		constraint_text = "Aucune restriction"
-
-	var constraint_label := Label.new()
-	constraint_label.text = constraint_text
-	constraint_label.add_theme_font_size_override("font_size", 12)
-	if constraints_parts.is_empty():
-		constraint_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	else:
-		constraint_label.add_theme_color_override("font_color", Color(0.6, 0.75, 0.9))
-	vbox.add_child(constraint_label)
+	# Ligne 2 : Commentaire (si present)
+	if not p.commentaire.is_empty():
+		var comment_label := Label.new()
+		comment_label.text = p.commentaire
+		comment_label.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
+		comment_label.add_theme_font_size_override("font_size", 12)
+		comment_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(comment_label)
 
 	return panel
 
 
-func _on_payload_add() -> void:
-	var dialog := _create_payload_dialog()
-	dialog.open_create(_get_nacelles_catalog())
+func _on_payload_download_pressed() -> void:
+	if _payload_download_btn:
+		_payload_download_btn.text = "Telechargement en cours..."
+		_payload_download_btn.disabled = true
+	PayloadManager.download_payloads()
 
 
-func _on_payload_edit(index: int) -> void:
-	var payloads: Array = _draft_settings.get("composition/payloads", [])
-	if index >= 0 and index < payloads.size():
-		var dialog := _create_payload_dialog()
-		dialog.open_edit(index, payloads[index].duplicate(true), _get_nacelles_catalog())
+func _connect_payload_signals() -> void:
+	if not PayloadManager.payloads_loaded.is_connected(_on_payloads_updated):
+		PayloadManager.payloads_loaded.connect(_on_payloads_updated)
+	if not PayloadManager.payloads_download_failed.is_connected(_on_payloads_download_failed):
+		PayloadManager.payloads_download_failed.connect(_on_payloads_download_failed)
+	if not PayloadManager.download_finished.is_connected(_on_payload_download_finished):
+		PayloadManager.download_finished.connect(_on_payload_download_finished)
 
 
-func _get_nacelles_catalog() -> Array:
-	var nacelles_catalog: Array = SettingsManager.get_setting("composition/nacelles")
-	if nacelles_catalog == null:
-		nacelles_catalog = []
-	return nacelles_catalog
+func _disconnect_payload_signals() -> void:
+	if PayloadManager.payloads_loaded.is_connected(_on_payloads_updated):
+		PayloadManager.payloads_loaded.disconnect(_on_payloads_updated)
+	if PayloadManager.payloads_download_failed.is_connected(_on_payloads_download_failed):
+		PayloadManager.payloads_download_failed.disconnect(_on_payloads_download_failed)
+	if PayloadManager.download_finished.is_connected(_on_payload_download_finished):
+		PayloadManager.download_finished.disconnect(_on_payload_download_finished)
+	if PayloadManager.update_check_completed.is_connected(_on_payload_update_check):
+		PayloadManager.update_check_completed.disconnect(_on_payload_update_check)
+	if PayloadManager.update_check_failed.is_connected(_on_payload_update_check_failed):
+		PayloadManager.update_check_failed.disconnect(_on_payload_update_check_failed)
 
 
-const PayloadDialogScene := preload("res://ui/components/payload_dialog.tscn")
-
-func _create_payload_dialog() -> Window:
-	var dialog := PayloadDialogScene.instantiate()
-	WindowHelper.open_modal(self, dialog)
-	dialog.payload_saved.connect(func(data: Dictionary, idx: int):
-		var payloads: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
-		var entry := {
-			"id": "",
-			"name": data["name"],
-			"compatible_drone_types": data["compatible_drone_types"],
-			"compatible_nacelle_ids": data["compatible_nacelle_ids"],
-		}
-		if idx < 0:
-			# Nouveau payload
-			entry["id"] = "payload_" + str(data["name"]).to_lower().replace(" ", "_")
-			payloads.append(entry)
-		else:
-			# Edition
-			entry["id"] = str(payloads[idx].get("id", ""))
-			if entry["id"] == "":
-				entry["id"] = "payload_" + str(data["name"]).to_lower().replace(" ", "_")
-			payloads[idx] = entry
-		_draft_settings["composition/payloads"] = payloads
-		_populate_payload_list()
-		dialog.queue_free()
-	)
-	dialog.close_requested.connect(func(): dialog.queue_free())
-	return dialog
+func _on_payload_update_check(update_available: bool) -> void:
+	if _payload_update_banner:
+		_payload_update_banner.visible = update_available
 
 
-func _on_payload_delete(index: int) -> void:
-	var payloads: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
-	if index < 0 or index >= payloads.size():
-		return
-
-	var payload_id: String = str(payloads[index].get("id", ""))
-	var payload_name: String = str(payloads[index].get("name", ""))
-
-	# Verifier si des contraintes referencent ce payload
-	var constraints: Array = SettingsManager.get_setting("composition/constraints")
-	if constraints == null:
-		constraints = []
-	var refs := SettingsMigrator.find_referencing_constraints(
-		payload_id, DroneConstraint.ConstraintCategory.PAYLOAD, constraints
-	)
-
-	var on_confirm := func():
-		var p: Array = _draft_settings.get("composition/payloads", []).duplicate(true)
-		if index >= 0 and index < p.size():
-			p.remove_at(index)
-			_draft_settings["composition/payloads"] = p
-			_populate_payload_list()
-
-	_show_delete_confirmation(payload_name, refs, on_confirm)
+func _on_payload_update_check_failed() -> void:
+	pass
 
 
-func _show_delete_confirmation(item_name: String, refs: Array[String], on_confirm: Callable) -> void:
-	var message: String
-	if refs.is_empty():
-		message = "Supprimer le payload \"%s\" ?" % item_name
-	else:
-		message = "Ce payload est reference par %d contrainte(s) :\n- %s\n\nSupprimer quand meme ?" % [
-			refs.size(), "\n- ".join(refs)
-		]
-	WindowHelper.confirm(self, "Suppression de %s" % item_name, message, on_confirm)
+func _on_payloads_updated() -> void:
+	if _payload_status_label:
+		_payload_status_label.text = PayloadManager.get_last_download_date_formatted()
+	if _payload_count_label:
+		_payload_count_label.text = str(PayloadManager.get_payload_count())
+	if _payload_update_banner:
+		_payload_update_banner.visible = false
+	_populate_payload_list()
+
+
+func _on_payloads_download_failed(error_msg: String) -> void:
+	if _payload_status_label:
+		_payload_status_label.text = "Erreur: %s" % error_msg
+		_payload_status_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+
+
+func _on_payload_download_finished() -> void:
+	if _payload_download_btn:
+		_payload_download_btn.text = "Telecharger la derniere version"
+		_payload_download_btn.disabled = false

@@ -77,8 +77,10 @@ func _declare_defaults() -> void:
 	declare_setting("composition/nacelles", SettingType.JSON, _default_nacelles(), SettingScope.GLOBAL, "_internal", "Catalogue nacelles", "Définitions des nacelles disponibles")
 	# Catalogue global : effets (JSON) — interne, alimenté par le système
 	declare_setting("composition/effects", SettingType.JSON, _default_effects(), SettingScope.GLOBAL, "_internal", "Catalogue effets", "Définitions des effets disponibles")
-	# Catalogue global : payloads (JSON) — éditable dans Base de données/Payloads
-	declare_setting("composition/payloads", SettingType.JSON, _default_payloads(), SettingScope.GLOBAL, "Base de données/Payloads", "Catalogue payloads", "Types de payloads disponibles")
+	# Catalogue global : payloads (JSON) — interne, alimente par PayloadManager
+	declare_setting("composition/payloads", SettingType.JSON, [], SettingScope.GLOBAL, "_internal", "Catalogue payloads", "Definitions des payloads telecharges")
+	declare_setting("payloads/last_download", SettingType.STRING, "", SettingScope.GLOBAL, "Base de données/Payloads", "Dernier telechargement", "Date du dernier telechargement des payloads")
+	declare_setting("payloads/count", SettingType.NUMBER, 0.0, SettingScope.GLOBAL, "Base de données/Payloads", "Nombre de payloads", "Nombre de payloads disponibles")
 
 	# --- Paramètres PROJET (Scénographie) ---
 	declare_setting("scenography/name", SettingType.STRING, "Ma Scénographie", SettingScope.PROJECT, "Général", "Nom de la scénographie", "Le nom identifiant ce projet")
@@ -110,13 +112,6 @@ static func _default_effects() -> Array:
 	]
 
 
-static func _default_payloads() -> Array:
-	return [
-		{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [0], "compatible_nacelle_ids": ["nacelle_lasermount"]},
-		{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-		{"id": "payload_strobe", "name": "Strobe", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-		{"id": "payload_superlight", "name": "SuperLight", "compatible_drone_types": [0], "compatible_nacelle_ids": []},
-	]
 
 func declare_setting(key: String, type: SettingType, default_value: Variant, scope: SettingScope = SettingScope.GLOBAL, category: String = "Général", label: String = "", description: String = "") -> void:
 	if not _settings.has(key):

@@ -160,8 +160,15 @@ func test_constraint_get_value_display_label_nacelle() -> void:
 
 
 func test_constraint_get_value_display_label_payload() -> void:
-	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_laser", 10)
+	# Injecter un catalogue payloads dans SettingsManager
+	var test_payloads := [{"id": "pl_laser_123", "name": "Laser", "actif_riff": true, "actif_emo": false}]
+	var old_payloads = SettingsManager.get_setting("composition/payloads")
+	SettingsManager.set_setting("composition/payloads", test_payloads)
+
+	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "pl_laser_123", 10)
 	assert_eq(p.get_value_display_label([], []), "Laser")
+
+	SettingsManager.set_setting("composition/payloads", old_payloads)
 
 
 func test_constraint_get_value_display_label_pyro_effect() -> void:
@@ -303,39 +310,54 @@ func test_constraint_resolve_implications_pyro_effect() -> void:
 	assert_true(result["implied_drone_types"].has(0))
 
 
-func test_constraint_resolve_implications_payload_with_nacelle() -> void:
-	# Injecter un catalogue payloads avec contraintes dans SettingsManager
+func test_constraint_resolve_implications_payload_riff_only() -> void:
+	# Injecter un catalogue payloads (nouveau format telecharge)
 	var test_payloads := [
-		{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [], "compatible_nacelle_ids": ["nacelle_lasermount"]},
+		{"id": "pl_laser_123", "name": "Laser", "actif_riff": true, "actif_emo": false},
 	]
 	var old_payloads = SettingsManager.get_setting("composition/payloads")
 	SettingsManager.set_setting("composition/payloads", test_payloads)
 
-	var nacelles := [
-		{"id": "nacelle_lasermount", "name": "LaserMount", "compatible_drone_types": [1]},
-	]
-	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_laser", 10)
-	var result := p.resolve_implications(nacelles, [])
-	assert_eq(result["implied_nacelle_ids"].size(), 1, "Laser implique nacelle_lasermount")
-	assert_true(result["nacelle_resolved"], "Nacelle resolue (1 seule)")
-	assert_eq(result["implied_drone_types"].size(), 1, "Un type drone implique via nacelle")
-	assert_true(result["type_resolved"], "Type drone resolu")
+	var p := DroneConstraint.create("Laser", DroneConstraint.ConstraintCategory.PAYLOAD, "pl_laser_123", 10)
+	var result := p.resolve_implications([], [])
+	assert_eq(result["implied_nacelle_ids"].size(), 0, "Pas d'implications nacelle pour les payloads")
+	assert_true(result["nacelle_resolved"], "Nacelle N/A pour les payloads")
+	assert_eq(result["implied_drone_types"], [0], "RIFF uniquement")
+	assert_true(result["type_resolved"], "Type drone resolu (1 seul)")
+	assert_eq(result["implied_drone_type_labels"], ["RIFF"])
 
 	# Restaurer
 	SettingsManager.set_setting("composition/payloads", old_payloads)
 
 
-func test_constraint_resolve_implications_payload_no_constraints() -> void:
-	# Injecter un payload sans contrainte
+func test_constraint_resolve_implications_payload_both_types() -> void:
+	# Injecter un payload compatible avec les deux types
 	var test_payloads := [
-		{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
+		{"id": "pl_smoke_456", "name": "Smoke", "actif_riff": true, "actif_emo": true},
 	]
 	var old_payloads = SettingsManager.get_setting("composition/payloads")
 	SettingsManager.set_setting("composition/payloads", test_payloads)
 
-	var p := DroneConstraint.create("Smoke", DroneConstraint.ConstraintCategory.PAYLOAD, "payload_smoke", 5)
+	var p := DroneConstraint.create("Smoke", DroneConstraint.ConstraintCategory.PAYLOAD, "pl_smoke_456", 5)
 	var result := p.resolve_implications([], [])
-	assert_eq(result["implied_nacelle_ids"].size(), 0)
+	assert_eq(result["implied_nacelle_ids"].size(), 0, "Pas d'implications nacelle")
+	assert_eq(result["implied_drone_types"].size(), 2, "Deux types drones")
+	assert_false(result["type_resolved"], "Type non resolu (2 options)")
+
+	# Restaurer
+	SettingsManager.set_setting("composition/payloads", old_payloads)
+
+
+func test_constraint_resolve_implications_payload_no_drone() -> void:
+	# Injecter un payload sans aucun drone actif
+	var test_payloads := [
+		{"id": "pl_none_789", "name": "Inactif", "actif_riff": false, "actif_emo": false},
+	]
+	var old_payloads = SettingsManager.get_setting("composition/payloads")
+	SettingsManager.set_setting("composition/payloads", test_payloads)
+
+	var p := DroneConstraint.create("Inactif", DroneConstraint.ConstraintCategory.PAYLOAD, "pl_none_789", 1)
+	var result := p.resolve_implications([], [])
 	assert_eq(result["implied_drone_types"].size(), 0)
 	assert_false(result["type_resolved"])
 

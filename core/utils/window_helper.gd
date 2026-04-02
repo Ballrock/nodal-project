@@ -160,7 +160,7 @@ static func hide_backdrop(parent_win: Window) -> void:
 ## Le backdrop s'affiche immédiatement et se retire automatiquement quand
 ## la fenêtre enfant se ferme (hide, close, ou queue_free).
 ## Fonctionne pour les N1 (child = Settings/Config/Composition) comme
-## pour les N2 (child = PayloadDialog/ConstraintDialog/etc.).
+## pour les N2 (child = ConstraintDialog/etc.).
 ## Safe à appeler plusieurs fois : les signaux ne sont connectés qu'une fois.
 static func bind_backdrop(parent_win: Window, child_win: Window) -> void:
 	show_backdrop(parent_win)

@@ -58,10 +58,13 @@ func get_value_display_label(nacelles_catalog: Array, effects_catalog: Array) ->
 					return str(n.get("name", value))
 			return value
 		ConstraintCategory.PAYLOAD:
-			# Strip prefix "payload_" for display
-			if value.begins_with("payload_"):
-				return value.substr(8).capitalize()
-			return value.capitalize()
+			var payloads_catalog: Array = SettingsManager.get_setting("composition/payloads")
+			if payloads_catalog == null:
+				payloads_catalog = []
+			for pl in payloads_catalog:
+				if str(pl.get("id", "")) == value:
+					return str(pl.get("name", value))
+			return value
 		ConstraintCategory.PYRO_EFFECT:
 			var parts := value.split("::", false)
 			var effect_id: String = parts[0] if parts.size() > 0 else ""
@@ -122,47 +125,21 @@ func resolve_implications(nacelles_catalog: Array, effects_catalog: Array) -> Di
 			return result
 
 		ConstraintCategory.PAYLOAD:
-			# Résout les implications depuis le catalogue payloads
+			# Resout les implications depuis le catalogue payloads (telecharge)
 			var payloads_catalog: Array = SettingsManager.get_setting("composition/payloads")
 			if payloads_catalog == null:
 				payloads_catalog = []
 			for pl in payloads_catalog:
 				if str(pl.get("id", "")) == value:
-					# Nacelles compatibles
-					var compat_nacelles = pl.get("compatible_nacelle_ids", [])
-					for nid in compat_nacelles:
-						var nid_str := str(nid)
-						if nid_str not in result["implied_nacelle_ids"]:
-							result["implied_nacelle_ids"].append(nid_str)
-					result["nacelle_resolved"] = result["implied_nacelle_ids"].size() == 1
-
-					# Drone types compatibles (directement déclarés)
-					var compat_types = pl.get("compatible_drone_types", [])
-					if not compat_types.is_empty():
-						for t in compat_types:
-							var ti := int(t)
-							if ti not in result["implied_drone_types"]:
-								result["implied_drone_types"].append(ti)
-					else:
-						# Si pas de types directs, résoudre via nacelles
-						for nid_str in result["implied_nacelle_ids"]:
-							for n in nacelles_catalog:
-								if str(n.get("id", "")) == nid_str:
-									var ntypes = n.get("compatible_drone_types", [])
-									for t in ntypes:
-										var ti := int(t)
-										if ti not in result["implied_drone_types"]:
-											result["implied_drone_types"].append(ti)
-									break
+					# Types drones depuis actif_riff / actif_emo
+					if pl.get("actif_riff", false):
+						if 0 not in result["implied_drone_types"]:
+							result["implied_drone_types"].append(0)
+					if pl.get("actif_emo", false):
+						if 1 not in result["implied_drone_types"]:
+							result["implied_drone_types"].append(1)
 					result["type_resolved"] = result["implied_drone_types"].size() == 1
-
-					# Noms des nacelles
-					for nid_str in result["implied_nacelle_ids"]:
-						for n in nacelles_catalog:
-							if str(n.get("id", "")) == nid_str:
-								result["implied_nacelle_names"].append(str(n.get("name", nid_str)))
-								break
-					# Labels drone types
+					result["nacelle_resolved"] = true  # N/A pour les payloads
 					for dt in result["implied_drone_types"]:
 						result["implied_drone_type_labels"].append("RIFF" if dt == 0 else "EMO")
 					break

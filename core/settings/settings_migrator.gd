@@ -5,7 +5,7 @@ extends RefCounted
 ## Systeme de migration versionnee des settings persistees.
 ## Chaque migration est une fonction statique _migrate_vX_to_vY().
 
-const CURRENT_VERSION := 1
+const CURRENT_VERSION := 2
 
 
 static func migrate(data: Dictionary) -> Dictionary:
@@ -14,46 +14,17 @@ static func migrate(data: Dictionary) -> Dictionary:
 	if version < 1:
 		data = _migrate_v0_to_v1(data)
 
-	# Futures migrations :
-	# if version < 2:
-	#     data = _migrate_v1_to_v2(data)
+	if version < 2:
+		data = _migrate_v1_to_v2(data)
 
 	data["_version"] = CURRENT_VERSION
 	return data
 
 
 static func _migrate_v0_to_v1(data: Dictionary) -> Dictionary:
-	# --- Payloads : ajout SuperLight, correction Laser ---
-	var payloads_entry: Dictionary = data.get("composition/payloads", {})
-	var persisted_payloads: Array = payloads_entry.get("value", [])
-
-	var existing_ids: Dictionary = {}
-	for pl in persisted_payloads:
-		if pl is Dictionary:
-			existing_ids[str(pl.get("id", ""))] = true
-
-	# Payloads attendus en v1 (autonome, pas de reference a l'autoload)
-	var v1_payloads: Array = [
-		{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [0], "compatible_nacelle_ids": ["nacelle_lasermount"]},
-		{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-		{"id": "payload_strobe", "name": "Strobe", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-		{"id": "payload_superlight", "name": "SuperLight", "compatible_drone_types": [0], "compatible_nacelle_ids": []},
-	]
-	# Ajouter les payloads par defaut manquants
-	for default_pl in v1_payloads:
-		var default_id: String = str(default_pl.get("id", ""))
-		if not existing_ids.has(default_id):
-			persisted_payloads.append(default_pl.duplicate(true))
-
-	# Corriger payload_laser
-	for pl in persisted_payloads:
-		if pl is Dictionary and str(pl.get("id", "")) == "payload_laser":
-			pl["compatible_drone_types"] = [0]
-			pl["compatible_nacelle_ids"] = ["nacelle_lasermount"]
-
-	payloads_entry["value"] = persisted_payloads
-	payloads_entry["last_modified"] = Time.get_datetime_string_from_system()
-	data["composition/payloads"] = payloads_entry
+	# --- Payloads : supprimer les anciennes donnees locales (desormais telecharges) ---
+	if data.has("composition/payloads"):
+		data.erase("composition/payloads")
 
 	# --- Nacelles : corriger lasermount si present ---
 	var nacelles_entry: Dictionary = data.get("composition/nacelles", {})
@@ -67,6 +38,16 @@ static func _migrate_v0_to_v1(data: Dictionary) -> Dictionary:
 		data["composition/nacelles"] = nacelles_entry
 
 	data["_version"] = 1
+	return data
+
+
+static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
+	# --- Payloads : supprimer les anciennes donnees locales editables ---
+	# Les payloads sont desormais telecharges via PayloadManager.
+	if data.has("composition/payloads"):
+		data.erase("composition/payloads")
+
+	data["_version"] = 2
 	return data
 
 

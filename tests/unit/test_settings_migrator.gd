@@ -5,43 +5,10 @@ extends GutTest
 
 # ── Migration v0 → v1 ──
 
-func test_migrate_v0_adds_superlight() -> void:
+func test_migrate_v0_erases_old_payloads() -> void:
 	var data := _make_v0_data()
 	var result := SettingsMigrator.migrate(data)
-	var payloads: Array = result["composition/payloads"]["value"]
-	var ids := _extract_ids(payloads)
-	assert_true(ids.has("payload_superlight"), "SuperLight doit etre ajoute par la migration")
-
-
-func test_migrate_v0_fixes_laser_drone_types() -> void:
-	var data := _make_v0_data()
-	var result := SettingsMigrator.migrate(data)
-	var payloads: Array = result["composition/payloads"]["value"]
-	var laser: Variant = _find_by_id(payloads, "payload_laser")
-	assert_not_null(laser)
-	assert_eq(laser["compatible_drone_types"], [0], "Laser doit etre sur RIFF (type 0)")
-
-
-func test_migrate_v0_fixes_laser_nacelle_ids() -> void:
-	var data := _make_v0_data()
-	var result := SettingsMigrator.migrate(data)
-	var payloads: Array = result["composition/payloads"]["value"]
-	var laser: Variant = _find_by_id(payloads, "payload_laser")
-	assert_not_null(laser)
-	assert_eq(laser["compatible_nacelle_ids"], ["nacelle_lasermount"])
-
-
-func test_migrate_v0_preserves_user_payloads() -> void:
-	var data := _make_v0_data()
-	# Ajouter un payload custom
-	data["composition/payloads"]["value"].append(
-		{"id": "payload_custom", "name": "MonPayload", "compatible_drone_types": [1], "compatible_nacelle_ids": []}
-	)
-	var result := SettingsMigrator.migrate(data)
-	var payloads: Array = result["composition/payloads"]["value"]
-	var custom: Variant = _find_by_id(payloads, "payload_custom")
-	assert_not_null(custom, "Le payload custom doit etre preserve")
-	assert_eq(custom["compatible_drone_types"], [1], "Les valeurs custom ne doivent pas etre modifiees")
+	assert_false(result.has("composition/payloads"), "Les anciennes donnees payloads doivent etre supprimees")
 
 
 func test_migrate_v0_fixes_nacelle_lasermount() -> void:
@@ -73,22 +40,14 @@ func test_migrate_idempotent() -> void:
 	var data := _make_v0_data()
 	var result1 := SettingsMigrator.migrate(data.duplicate(true))
 	var result2 := SettingsMigrator.migrate(result1.duplicate(true))
-	var payloads1: Array = result1["composition/payloads"]["value"]
-	var payloads2: Array = result2["composition/payloads"]["value"]
-	assert_eq(payloads1.size(), payloads2.size(), "La migration ne doit pas dupliquer les payloads")
-	var ids2 := _extract_ids(payloads2)
-	# Pas de doublon
-	var unique_ids := {}
-	for id in ids2:
-		assert_false(unique_ids.has(id), "ID duplique detecte : %s" % id)
-		unique_ids[id] = true
+	assert_eq(result1["_version"], result2["_version"])
+	assert_false(result2.has("composition/payloads"), "Les payloads ne doivent pas reapparaitre")
 
 
 func test_migrate_skips_if_current_version() -> void:
 	var data := {"_version": SettingsMigrator.CURRENT_VERSION}
 	var result := SettingsMigrator.migrate(data)
 	assert_eq(result["_version"], SettingsMigrator.CURRENT_VERSION)
-	assert_false(result.has("composition/payloads"), "Pas de modification si deja a jour")
 
 
 # ── Donnees vides / manquantes ──
@@ -97,18 +56,35 @@ func test_migrate_empty_data() -> void:
 	var data := {}
 	var result := SettingsMigrator.migrate(data)
 	assert_eq(result["_version"], SettingsMigrator.CURRENT_VERSION)
-	# La migration doit ajouter les payloads par defaut
-	var payloads: Array = result["composition/payloads"]["value"]
-	assert_true(payloads.size() > 0, "Les defaults doivent etre crees")
 
 
 func test_migrate_missing_payloads_key() -> void:
 	var data := {"_version": 0}
 	var result := SettingsMigrator.migrate(data)
-	var payloads: Array = result["composition/payloads"]["value"]
-	var ids := _extract_ids(payloads)
-	assert_true(ids.has("payload_laser"))
-	assert_true(ids.has("payload_superlight"))
+	assert_false(result.has("composition/payloads"), "Pas de cle payloads si absente au depart")
+
+
+# ── Migration v1 → v2 ──
+
+func test_migrate_v1_erases_old_payloads() -> void:
+	var data := _make_v1_data()
+	var result := SettingsMigrator.migrate(data)
+	assert_false(result.has("composition/payloads"), "Les payloads locaux v1 doivent etre supprimes")
+	assert_eq(result["_version"], 2)
+
+
+func test_migrate_v1_without_payloads() -> void:
+	var data := {"_version": 1}
+	var result := SettingsMigrator.migrate(data)
+	assert_false(result.has("composition/payloads"))
+	assert_eq(result["_version"], 2)
+
+
+func test_migrate_v0_to_v2_full_chain() -> void:
+	var data := _make_v0_data()
+	var result := SettingsMigrator.migrate(data)
+	assert_false(result.has("composition/payloads"), "Payloads supprimes apres chaine v0->v1->v2")
+	assert_eq(result["_version"], 2)
 
 
 # ── find_referencing_constraints ──
@@ -166,6 +142,21 @@ func test_find_refs_nacelle_category() -> void:
 
 
 # ── Helpers ──
+
+func _make_v1_data() -> Dictionary:
+	return {
+		"_version": 1,
+		"composition/payloads": {
+			"last_modified": "2026-03-01T00:00:00",
+			"value": [
+				{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [0], "compatible_nacelle_ids": ["nacelle_lasermount"]},
+				{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
+				{"id": "payload_strobe", "name": "Strobe", "compatible_drone_types": [], "compatible_nacelle_ids": []},
+				{"id": "payload_superlight", "name": "SuperLight", "compatible_drone_types": [0], "compatible_nacelle_ids": []},
+			]
+		}
+	}
+
 
 func _make_v0_data() -> Dictionary:
 	return {

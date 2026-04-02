@@ -117,7 +117,7 @@ func test_windows_screenshots() -> void:
 	cw.hide()
 	await _wait_frames(2)
 
-	# ── 5. PayloadDialog via SettingsWindow ──
+	# ── 5. PayloadSettings (lecture seule via SettingsWindow) ──
 	_make_capturable(sw)
 	sw.open_global()
 	await _wait_frames(3)
@@ -133,31 +133,7 @@ func test_windows_screenshots() -> void:
 		cat_tree.item_selected.emit()
 		await _wait_frames(3)
 
-	# Cliquer sur "Ajouter un payload"
-	var opts := sw.get_node("%OptionsContainer") as VBoxContainer
-	var add_btn := _find_button_with_text(opts, "Ajouter un payload")
-	if add_btn:
-		_simulate_button_press(add_btn)
-		await _wait_frames(3)
-
-	# Trouver le PayloadDialog et le rendre capturable
-	var pd: Window = null
-	for child in sw.get_children():
-		if child is Window and child.name.begins_with("PayloadDialog"):
-			pd = child
-			break
-
-	if pd:
-		# Cacher avant de changer force_native (Godot interdit le changement sur une fenêtre visible)
-		pd.hide()
-		_make_capturable(pd)
-		pd.position = Vector2i(200, 100)
-		pd.size = Vector2i(500, 400)
-		pd.show()
-		await _wait_frames(3)
-		await _take_screenshot("05_payload_dialog")
-		pd.hide()
-		await _wait_frames(2)
+	await _take_screenshot("05_payload_settings")
 
 	sw.close()
 	await _wait_frames(2)
