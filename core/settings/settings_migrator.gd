@@ -3,52 +3,54 @@ class_name SettingsMigrator
 extends RefCounted
 
 ## Systeme de migration versionnee des settings persistees.
-## Chaque migration est une fonction statique _migrate_vX_to_vY().
+## Les migrations sont auto-decouvertes depuis le dossier migrations/.
+## Chaque fichier migration_XXX.gd doit etendre MigrationBase.
 
-const CURRENT_VERSION := 2
+const MIGRATIONS_DIR := "res://core/settings/migrations/"
 
 
 static func migrate(data: Dictionary) -> Dictionary:
 	var version: int = int(data.get("_version", 0))
+	var migrations := _discover_migrations()
 
-	if version < 1:
-		data = _migrate_v0_to_v1(data)
+	for m: MigrationBase in migrations:
+		var m_version: int = m.get_version()
+		if version < m_version:
+			data = m.up(data)
+			data["_version"] = m_version
 
-	if version < 2:
-		data = _migrate_v1_to_v2(data)
-
-	data["_version"] = CURRENT_VERSION
 	return data
 
 
-static func _migrate_v0_to_v1(data: Dictionary) -> Dictionary:
-	# --- Payloads : supprimer les anciennes donnees locales (desormais telecharges) ---
-	if data.has("composition/payloads"):
-		data.erase("composition/payloads")
-
-	# --- Nacelles : corriger lasermount si present ---
-	var nacelles_entry: Dictionary = data.get("composition/nacelles", {})
-	var persisted_nacelles: Array = nacelles_entry.get("value", [])
-	for nac in persisted_nacelles:
-		if nac is Dictionary and str(nac.get("id", "")) == "nacelle_lasermount":
-			nac["compatible_drone_types"] = [0]
-	if not persisted_nacelles.is_empty():
-		nacelles_entry["value"] = persisted_nacelles
-		nacelles_entry["last_modified"] = Time.get_datetime_string_from_system()
-		data["composition/nacelles"] = nacelles_entry
-
-	data["_version"] = 1
-	return data
+static func get_current_version() -> int:
+	var migrations := _discover_migrations()
+	if migrations.is_empty():
+		return 0
+	return migrations[migrations.size() - 1].get_version()
 
 
-static func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
-	# --- Payloads : supprimer les anciennes donnees locales editables ---
-	# Les payloads sont desormais telecharges via PayloadManager.
-	if data.has("composition/payloads"):
-		data.erase("composition/payloads")
+static func _discover_migrations() -> Array[MigrationBase]:
+	var migrations: Array[MigrationBase] = []
+	var dir := DirAccess.open(MIGRATIONS_DIR)
+	if not dir:
+		push_warning("SettingsMigrator: dossier migrations introuvable: %s" % MIGRATIONS_DIR)
+		return migrations
 
-	data["_version"] = 2
-	return data
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if file_name.begins_with("migration_") and file_name.ends_with(".gd") and file_name != "migration_base.gd":
+			var script = load(MIGRATIONS_DIR + file_name)
+			if script:
+				var instance = script.new()
+				if instance is MigrationBase:
+					migrations.append(instance)
+				else:
+					push_warning("SettingsMigrator: %s n'etend pas MigrationBase" % file_name)
+		file_name = dir.get_next()
+
+	migrations.sort_custom(func(a: MigrationBase, b: MigrationBase): return a.get_version() < b.get_version())
+	return migrations
 
 
 ## Retourne les noms des contraintes qui referencent un item donne.

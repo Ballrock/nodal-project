@@ -1,18 +1,52 @@
 extends GutTest
 
-## Tests unitaires pour SettingsMigrator : migrations et verification d'integrite.
+## Tests unitaires pour SettingsMigrator : migrations auto-decouvertes (timestamps).
 
 
-# ── Migration v0 → v1 ──
+# ── Auto-decouverte ──
 
-func test_migrate_v0_erases_old_payloads() -> void:
-	var data := _make_v0_data()
+func test_discover_finds_migrations() -> void:
+	var version := SettingsMigrator.get_current_version()
+	assert_gt(version, 0, "Au moins une migration doit exister")
+
+
+func test_current_version_is_timestamp() -> void:
+	var version := SettingsMigrator.get_current_version()
+	# Un timestamp YYYYMMDDHHMMSS a au moins 14 chiffres
+	assert_gt(version, 20200101000000, "La version doit etre un timestamp")
+
+
+func test_migrations_are_sorted_by_version() -> void:
+	var migrations := SettingsMigrator._discover_migrations()
+	assert_gt(migrations.size(), 0, "Au moins une migration doit exister")
+	for i in range(1, migrations.size()):
+		assert_gt(migrations[i].get_version(), migrations[i - 1].get_version(),
+			"Les migrations doivent etre triees par version croissante")
+
+
+func test_migrations_extend_migration_base() -> void:
+	var migrations := SettingsMigrator._discover_migrations()
+	for m in migrations:
+		assert_true(m is MigrationBase, "Chaque migration doit etendre MigrationBase")
+
+
+func test_migrations_have_descriptions() -> void:
+	var migrations := SettingsMigrator._discover_migrations()
+	for m in migrations:
+		assert_ne(m.get_description(), "", "Chaque migration doit avoir une description")
+
+
+# ── Execution des migrations ──
+
+func test_migrate_from_zero_applies_all() -> void:
+	var data := _make_legacy_data()
 	var result := SettingsMigrator.migrate(data)
-	assert_false(result.has("composition/payloads"), "Les anciennes donnees payloads doivent etre supprimees")
+	assert_eq(result["_version"], SettingsMigrator.get_current_version())
+	assert_false(result.has("composition/payloads"), "Payloads supprimes")
 
 
-func test_migrate_v0_fixes_nacelle_lasermount() -> void:
-	var data := _make_v0_data()
+func test_migrate_fixes_nacelle_lasermount() -> void:
+	var data := _make_legacy_data()
 	data["composition/nacelles"] = {
 		"value": [
 			{"id": "nacelle_lasermount", "name": "LaserMount", "compatible_drone_types": [1]},
@@ -28,26 +62,20 @@ func test_migrate_v0_fixes_nacelle_lasermount() -> void:
 	assert_eq(std["compatible_drone_types"], [0, 1], "Standard ne doit pas changer")
 
 
-func test_migrate_sets_version() -> void:
-	var data := _make_v0_data()
-	var result := SettingsMigrator.migrate(data)
-	assert_eq(result["_version"], SettingsMigrator.CURRENT_VERSION)
-
-
 # ── Idempotence ──
 
 func test_migrate_idempotent() -> void:
-	var data := _make_v0_data()
+	var data := _make_legacy_data()
 	var result1 := SettingsMigrator.migrate(data.duplicate(true))
 	var result2 := SettingsMigrator.migrate(result1.duplicate(true))
 	assert_eq(result1["_version"], result2["_version"])
-	assert_false(result2.has("composition/payloads"), "Les payloads ne doivent pas reapparaitre")
+	assert_false(result2.has("composition/payloads"))
 
 
 func test_migrate_skips_if_current_version() -> void:
-	var data := {"_version": SettingsMigrator.CURRENT_VERSION}
+	var data := {"_version": SettingsMigrator.get_current_version()}
 	var result := SettingsMigrator.migrate(data)
-	assert_eq(result["_version"], SettingsMigrator.CURRENT_VERSION)
+	assert_eq(result["_version"], SettingsMigrator.get_current_version())
 
 
 # ── Donnees vides / manquantes ──
@@ -55,36 +83,23 @@ func test_migrate_skips_if_current_version() -> void:
 func test_migrate_empty_data() -> void:
 	var data := {}
 	var result := SettingsMigrator.migrate(data)
-	assert_eq(result["_version"], SettingsMigrator.CURRENT_VERSION)
+	assert_eq(result["_version"], SettingsMigrator.get_current_version())
 
 
-func test_migrate_missing_payloads_key() -> void:
+func test_migrate_no_payloads_key() -> void:
 	var data := {"_version": 0}
 	var result := SettingsMigrator.migrate(data)
-	assert_false(result.has("composition/payloads"), "Pas de cle payloads si absente au depart")
-
-
-# ── Migration v1 → v2 ──
-
-func test_migrate_v1_erases_old_payloads() -> void:
-	var data := _make_v1_data()
-	var result := SettingsMigrator.migrate(data)
-	assert_false(result.has("composition/payloads"), "Les payloads locaux v1 doivent etre supprimes")
-	assert_eq(result["_version"], 2)
-
-
-func test_migrate_v1_without_payloads() -> void:
-	var data := {"_version": 1}
-	var result := SettingsMigrator.migrate(data)
 	assert_false(result.has("composition/payloads"))
-	assert_eq(result["_version"], 2)
 
 
-func test_migrate_v0_to_v2_full_chain() -> void:
-	var data := _make_v0_data()
+# ── Transition depuis anciens numeros sequentiels ──
+
+func test_migrate_from_old_sequential_version() -> void:
+	# Un fichier avec _version: 2 (ancien format) doit relancer toutes les migrations
+	var data := {"_version": 2, "composition/payloads": {"value": [{"id": "old"}]}}
 	var result := SettingsMigrator.migrate(data)
-	assert_false(result.has("composition/payloads"), "Payloads supprimes apres chaine v0->v1->v2")
-	assert_eq(result["_version"], 2)
+	assert_eq(result["_version"], SettingsMigrator.get_current_version())
+	assert_false(result.has("composition/payloads"), "Payloads nettoyes apres transition")
 
 
 # ── find_referencing_constraints ──
@@ -143,40 +158,16 @@ func test_find_refs_nacelle_category() -> void:
 
 # ── Helpers ──
 
-func _make_v1_data() -> Dictionary:
-	return {
-		"_version": 1,
-		"composition/payloads": {
-			"last_modified": "2026-03-01T00:00:00",
-			"value": [
-				{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [0], "compatible_nacelle_ids": ["nacelle_lasermount"]},
-				{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-				{"id": "payload_strobe", "name": "Strobe", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-				{"id": "payload_superlight", "name": "SuperLight", "compatible_drone_types": [0], "compatible_nacelle_ids": []},
-			]
-		}
-	}
-
-
-func _make_v0_data() -> Dictionary:
+func _make_legacy_data() -> Dictionary:
 	return {
 		"composition/payloads": {
 			"last_modified": "2026-01-01T00:00:00",
 			"value": [
 				{"id": "payload_laser", "name": "Laser", "compatible_drone_types": [1], "compatible_nacelle_ids": []},
 				{"id": "payload_smoke", "name": "Smoke", "compatible_drone_types": [], "compatible_nacelle_ids": []},
-				{"id": "payload_strobe", "name": "Strobe", "compatible_drone_types": [], "compatible_nacelle_ids": []},
 			]
 		}
 	}
-
-
-func _extract_ids(items: Array) -> Array:
-	var ids := []
-	for item in items:
-		if item is Dictionary:
-			ids.append(str(item.get("id", "")))
-	return ids
 
 
 func _find_by_id(items: Array, id: String) -> Variant:

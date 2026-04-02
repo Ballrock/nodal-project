@@ -224,7 +224,7 @@ func load_project_settings_dict(data: Dictionary) -> void:
 
 func _save_global_settings() -> void:
 	var data := {}
-	data["_version"] = SettingsMigrator.CURRENT_VERSION
+	data["_version"] = SettingsMigrator.get_current_version()
 	for key: String in _settings:
 		var s: Setting = _settings[key]
 		if s.scope == SettingScope.GLOBAL:
@@ -261,7 +261,7 @@ func _load_global_settings() -> void:
 		if data is Dictionary:
 			# Migration si version obsolete
 			var persisted_version: int = int(data.get("_version", 0))
-			if persisted_version < SettingsMigrator.CURRENT_VERSION:
+			if persisted_version < SettingsMigrator.get_current_version():
 				data = SettingsMigrator.migrate(data)
 				_save_migrated_data(data)
 

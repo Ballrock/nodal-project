@@ -48,6 +48,34 @@ $GODOT --headless --path . -s addons/gut/gut_cmdln.gd
 ```
 Les résultats détaillés par fichier s'affichent à la fin du run et sont sauvegardés dans `coverage.json`.
 
+## Migrations de settings
+
+Les settings persistees (`user://settings.json`) sont versionnees via un systeme de migrations auto-decouvertes, inspire de TypeORM.
+
+**Structure :**
+```
+core/settings/
+├── settings_migrator.gd              # Auto-decouvre et execute les migrations
+└── migrations/
+    ├── migration_base.gd             # Classe de base (MigrationBase)
+    ├── migration_20260301000000.gd   # Premiere migration
+    └── migration_YYYYMMDDHHMMSS.gd   # Futures migrations
+```
+
+**Creer une nouvelle migration :**
+```bash
+./scripts/generate_migration.sh "description de la migration"
+```
+
+Cela genere un fichier `migration_<timestamp>.gd` pre-rempli. Il suffit d'implementer la methode `up(data)`.
+
+**Convention :**
+- Chaque migration etend `MigrationBase`
+- `get_version()` retourne le timestamp (YYYYMMDDHHMMSS) comme entier
+- `up(data)` recoit et retourne le dictionnaire des settings
+- Les migrations sont idempotentes (peuvent etre rejouees sans effet)
+- Le migrator les execute dans l'ordre chronologique, seulement si `_version < timestamp`
+
 ## Stack
 
 - **Moteur** : Godot 4.6
